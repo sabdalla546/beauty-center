@@ -1,0 +1,102 @@
+{
+  "user": {
+    "email_in_use": "Email already in use",
+    "created": "User created successfully",
+    "not_found": "User not found",
+    "create_failed": "Failed to create user",
+    "list_success": "Users fetched",
+    "invalid_id": "Invalid user ID",
+    "fetched": "User fetched",
+    "updated": "User updated",
+    "update_failed": "Failed to update user",
+    "deleted": "User deleted",
+    "delete_failed": "Failed to delete user",
+    "profile_fetched": "Profile fetched",
+    "profile_updated": "Profile updated",
+    "profile_update_failed": "Failed to update profile",
+    "cannot_delete_last_admin": "Cannot delete the last administrator",
+    "not_deleted": "User is not deleted",
+    "restored": "User restored",
+    "restore_failed": "Failed to restore user"
+  },
+  "auth": {
+    "invalid_input": "Invalid input",
+    "invalid_credentials": "Invalid credentials",
+    "no_refresh": "No refresh token provided",
+    "invalid_refresh": "Invalid refresh token",
+    "invalid_or_expired_refresh": "Invalid or expired refresh token",
+    "logged_out": "Logged out"
+  },
+  "roles": {
+    "list_success": "Roles fetched successfully"
+  },
+  "role": {
+    "name_required": "Role name is required",
+    "created": "Role created successfully",
+    "invalid_id": "Invalid role ID",
+    "not_found": "Role not found",
+    "permissions_assigned": "Permissions assigned successfully",
+    "assign_missing": "userId and roleId are required",
+    "assign_not_found": "User or Role not found",
+    "assigned_to_user": "Role assigned to user",
+    "assign_failed": "Failed to assign role",
+    "remove_not_found": "User or Role not found",
+    "removed_from_user": "Role removed from user",
+    "remove_failed": "Failed to remove role"
+  },
+  "permissions": {
+    "list_success": "Permissions fetched successfully"
+  },
+  "permission": {
+    "name_required": "Permission name is required",
+    "created": "Permission created successfully",
+    "ids_or_names_required": "permissionIds or permissionNames is required",
+    "create_failed": "Failed to create permission"
+  },
+  "sessions": {
+    "list_success": "Sessions fetched successfully",
+    "invalid_id": "Invalid session ID",
+    "not_found": "Session not found",
+    "revoked": "Session revoked successfully",
+    "revoked_all": "All sessions revoked successfully"
+  },
+  "customer": {
+    "invalid_input": "Invalid input",
+    "created": "Customer created",
+    "create_failed": "Failed to create customer",
+    "list_success": "Customers fetched",
+    "invalid_id": "Invalid customer id",
+    "not_found": "Customer not found",
+    "fetched": "Customer fetched",
+    "updated": "Customer updated",
+    "update_failed": "Failed to update customer",
+    "deleted": "Customer deleted",
+    "delete_failed": "Failed to delete customer",
+    "restore_not_supported": "Restore not supported for customers",
+    "restored": "Customer restored",
+    "restore_failed": "Failed to restore customer"
+  },
+  "staff": {
+    "invalid_input": "Invalid input",
+    "created": "Staff created successfully",
+    "create_failed": "Failed to create staff",
+    "user_not_found": "User not found",
+    "already_exists": "Staff profile already exists for this user",
+    "list_success": "Staff fetched successfully",
+    "invalid_query": "Invalid query parameters",
+    "invalid_id": "Invalid staff id",
+    "fetched": "Staff fetched",
+    "not_found": "Staff not found",
+    "updated": "Staff updated",
+    "update_failed": "Failed to update staff",
+    "deleted": "Staff deleted",
+    "delete_failed": "Failed to delete staff",
+    "restore_not_supported": "Restore not supported for Staff (paranoid not enabled)",
+    "restored": "Staff restored successfully",
+    "restore_failed": "Failed to restore staff",
+    "delete_blocked": "Staff cannot be deleted because of linked: {{list}}"
+  },
+  "internal": {
+    "server_error": "Something went wrong"
+  }
+}

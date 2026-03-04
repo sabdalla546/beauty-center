@@ -1,0 +1,135 @@
+@import url("https://fonts.googleapis.com/css2?family=Cairo:wght@200..1000&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 224 15% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 15% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 15% 12%;
+
+    /* Primary = Rose */
+    --primary: 345 82% 52%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary = Soft champagne */
+    --secondary: 30 35% 96%;
+    --secondary-foreground: 224 15% 18%;
+
+    --muted: 220 18% 96%;
+    --muted-foreground: 220 10% 45%;
+
+    --accent: 335 55% 96%;
+    --accent-foreground: 345 60% 30%;
+
+    --destructive: 0 84% 58%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 18% 90%;
+    --input: 220 18% 90%;
+    --ring: 345 82% 52%;
+
+    /* Extra tokens (optional but awesome) */
+    --brand-1: 345 82% 52%; /* rose */
+    --brand-2: 268 85% 62%; /* violet */
+    --brand-3: 190 85% 45%; /* teal */
+
+    --scrollbar-track: hsl(var(--muted));
+    --scrollbar-thumb: hsl(var(--border));
+    --scrollbar-thumb-hover: hsl(var(--muted-foreground) / 0.45);
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 225 22% 8%;
+    --foreground: 0 0% 98%;
+
+    --card: 225 22% 10%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 225 22% 10%;
+    --popover-foreground: 0 0% 98%;
+
+    /* Primary = Rose brighter in dark */
+    --primary: 345 90% 62%;
+    --primary-foreground: 225 22% 10%;
+
+    --secondary: 225 18% 14%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 225 18% 14%;
+    --muted-foreground: 220 14% 70%;
+
+    --accent: 280 24% 16%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 225 18% 18%;
+    --input: 225 18% 18%;
+    --ring: 345 90% 62%;
+
+    --brand-1: 345 90% 62%;
+    --brand-2: 268 90% 70%;
+    --brand-3: 190 90% 55%;
+
+    --scrollbar-track: hsl(var(--background));
+    --scrollbar-thumb: hsl(var(--border));
+    --scrollbar-thumb-hover: hsl(var(--muted-foreground) / 0.45);
+
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Cairo", sans-serif;
+  }
+}
+/* Custom scrollbar (dark-ish) */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Hide scrollbar but keep scrollable */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}

@@ -1,0 +1,102 @@
+{
+  "user": {
+    "email_in_use": "البريد الإلكتروني مستخدم بالفعل",
+    "created": "تم إنشاء المستخدم بنجاح",
+    "not_found": "لم يتم العثور على المستخدم",
+    "create_failed": "فشل في إنشاء المستخدم",
+    "list_success": "تم جلب المستخدمين",
+    "invalid_id": "معرّف المستخدم غير صالح",
+    "fetched": "تم جلب المستخدم",
+    "updated": "تم تحديث المستخدم",
+    "update_failed": "فشل في تحديث المستخدم",
+    "deleted": "تم حذف المستخدم",
+    "delete_failed": "فشل في حذف المستخدم",
+    "profile_fetched": "تم جلب الملف الشخصي",
+    "profile_updated": "تم تحديث الملف الشخصي",
+    "profile_update_failed": "فشل في تحديث الملف الشخصي",
+    "cannot_delete_last_admin": "لا يمكن حذف آخر مدير",
+    "not_deleted": "المستخدم غير محذوف",
+    "restored": "تم استعادة المستخدم",
+    "restore_failed": "فشل في استعادة المستخدم"
+  },
+  "auth": {
+    "invalid_input": "إدخال غير صالح",
+    "invalid_credentials": "بيانات الاعتماد غير صحيحة",
+    "no_refresh": "لم يتم تقديم رمز التحديث",
+    "invalid_refresh": "رمز التحديث غير صالح",
+    "invalid_or_expired_refresh": "رمز التحديث غير صالح أو منتهي الصلاحية",
+    "logged_out": "تم تسجيل الخروج"
+  },
+  "roles": {
+    "list_success": "تم جلب الأدوار بنجاح"
+  },
+  "role": {
+    "name_required": "اسم الدور مطلوب",
+    "created": "تم إنشاء الدور بنجاح",
+    "invalid_id": "معرّف الدور غير صالح",
+    "not_found": "لم يتم العثور على الدور",
+    "permissions_assigned": "تم تعيين الأذونات بنجاح",
+    "assign_missing": "يجب توفير userId و roleId",
+    "assign_not_found": "لم يتم العثور على المستخدم أو الدور",
+    "assigned_to_user": "تم تعيين الدور للمستخدم بنجاح",
+    "assign_failed": "فشل في تعيين الدور",
+    "remove_not_found": "لم يتم العثور على المستخدم أو الدور",
+    "removed_from_user": "تم إزالة الدور من المستخدم بنجاح",
+    "remove_failed": "فشل في إزالة الدور"
+  },
+  "permissions": {
+    "list_success": "تم جلب الأذونات بنجاح"
+  },
+  "permission": {
+    "name_required": "اسم الإذن مطلوب",
+    "created": "تم إنشاء الإذن بنجاح",
+    "ids_or_names_required": "يجب توفير permissionIds أو permissionNames",
+    "create_failed": "فشل في إنشاء الإذن"
+  },
+  "sessions": {
+    "list_success": "تم جلب الجلسات بنجاح",
+    "invalid_id": "معرف الجلسة غير صالح",
+    "not_found": "لم يتم العثور على الجلسة",
+    "revoked": "تم إلغاء الجلسة بنجاح",
+    "revoked_all": "تم إلغاء جميع الجلسات بنجاح"
+  },
+  "customer": {
+    "invalid_input": "إدخال غير صالح",
+    "created": "تم إنشاء العميل",
+    "create_failed": "فشل في إنشاء العميل",
+    "list_success": "تم جلب العملاء",
+    "invalid_id": "معرف العميل غير صالح",
+    "not_found": "العميل غير موجود",
+    "fetched": "تم جلب العميل",
+    "updated": "تم تحديث العميل",
+    "update_failed": "فشل في تحديث العميل",
+    "deleted": "تم حذف العميل",
+    "delete_failed": "فشل في حذف العميل",
+    "restore_not_supported": "استعادة العميل غير مدعومة",
+    "restored": "تم استعادة العميل",
+    "restore_failed": "فشل في استعادة العميل"
+  },
+  "staff": {
+    "invalid_input": "مدخلات غير صالحة",
+    "created": "تم إنشاء ملف الموظف بنجاح",
+    "create_failed": "فشل في إنشاء ملف الموظف",
+    "user_not_found": "المستخدم غير موجود",
+    "already_exists": "ملف الموظف موجود لهذا المستخدم",
+    "list_success": "تم جلب بيانات الموظفين بنجاح",
+    "invalid_query": "معاملات الاستعلام غير صالحة",
+    "invalid_id": "معرّف موظف غير صالح",
+    "fetched": "تم جلب بيانات الموظف",
+    "not_found": "الموظف غير موجود",
+    "updated": "تم تحديث بيانات الموظف",
+    "update_failed": "فشل في تحديث بيانات الموظف",
+    "deleted": "تم حذف الموظف",
+    "delete_failed": "فشل في حذف الموظف",
+    "restore_not_supported": "الاسترجاع غير مدعوم (paranoid غير مفعّل)",
+    "restored": "تم استعادة ملف الموظف بنجاح",
+    "restore_failed": "فشل في استعادة ملف الموظف",
+    "delete_blocked": "لا يمكن حذف الموظف بسبب الارتباط بـ: {{list}}"
+  },
+  "internal": {
+    "server_error": "حدث خطأ ما"
+  }
+}
