@@ -5,7 +5,7 @@ import {
   InferCreationAttributes,
   CreationOptional,
 } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 export class PackageUsage extends Model<
   InferAttributes<PackageUsage>,
@@ -13,7 +13,7 @@ export class PackageUsage extends Model<
 > {
   declare id: CreationOptional<number>;
   declare customerPackageId: number;
-
+  declare amountFils: number;
   declare appointmentId: number | null;
   declare orderItemId: number | null;
 
@@ -35,7 +35,7 @@ PackageUsage.init(
       primaryKey: true,
     },
     customerPackageId: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
-
+    amountFils: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     appointmentId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true },
     orderItemId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true },
 

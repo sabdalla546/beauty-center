@@ -1,5 +1,5 @@
 import { QueryTypes } from "sequelize";
-import { connectDB, sequelize } from "../db";
+import { connectDB, sequelize } from "../db/db";
 
 type StatRow = {
   INDEX_NAME: string;
@@ -155,4 +155,3 @@ cleanupUsersIndexes()
     }
     process.exit(1);
   });
-

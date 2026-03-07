@@ -1,11 +1,11 @@
-﻿import express from "express";
+import express from "express";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import path from "path";
 
-import { connectDB, sequelize } from "./db";
+import { connectDB, sequelize } from "./db/db";
 import { startRefreshTokenMaintenance } from "./utils/jwt";
 import { logger } from "./utils/logger";
 
@@ -29,6 +29,7 @@ import appointmentRoutes from "./routes/appointment.routes";
 import shiftRoutes from "./routes/shift.routes";
 import posRoutes from "./routes/pos.routes";
 import packagesRoutes from "./routes/packages.routes";
+import reportsRoutes from "./routes/reports.routes";
 
 const app = express();
 
@@ -95,6 +96,7 @@ app.use("/api/v1/appointments", appointmentRoutes);
 app.use("/api/v1/shifts", shiftRoutes);
 app.use("/api/v1/pos", posRoutes);
 app.use("/api/v1/packages", packagesRoutes);
+app.use("/api/v1/reports", reportsRoutes);
 
 app.use(multerErrorHandler);
 // 404 + error
@@ -106,15 +108,14 @@ app.use(globalErrorHandler);
 // ----------------------
 connectDB()
   .then(async () => {
-    logger.info("Database connected â€” starting server");
+    logger.info("Database connected — starting server");
 
     // IMPORTANT: load associations always (cheap + prevents runtime include errors)
     await import("./models/index");
 
-    const shouldSync =
-      process.env.NODE_ENV === "development" &&
-      process.env.DB_SYNC === "true";
-    const shouldAlter = process.env.DB_SYNC_ALTER === "true";
+    const isDev = process.env.NODE_ENV === "development";
+    const shouldSync = isDev && process.env.DB_SYNC === "true";
+    const shouldAlter = isDev && process.env.DB_SYNC_ALTER === "true";
 
     if (shouldSync) {
       try {
@@ -141,11 +142,13 @@ connectDB()
         }
       }
     } else {
-      console.log("Production mode: Use migrations.");
+      logger.info(
+        "DB sync is disabled. (In dev set DB_SYNC=true, and optionally DB_SYNC_ALTER=true)",
+      );
     }
 
     const PORT = Number(process.env.PORT || 5000);
-    app.listen(PORT, () => console.log(`ðŸš€ Server running on port ${PORT}`));
+    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
     const { pruneId, cleanupId } = startRefreshTokenMaintenance();
     process.on("SIGINT", () => {
@@ -170,4 +173,3 @@ process.on("uncaughtException", (err: Error) => {
 process.on("unhandledRejection", (reason) => {
   logger.error("UNHANDLED REJECTION", { reason });
 });
-

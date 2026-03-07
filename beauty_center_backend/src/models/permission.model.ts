@@ -1,6 +1,6 @@
 // src/models/Permission.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 export class Permission extends Model {
   declare id: number;
@@ -15,5 +15,5 @@ Permission.init(
     },
     name: { type: DataTypes.STRING(128), allowNull: false, unique: true },
   },
-  { sequelize, tableName: "permissions", timestamps: true }
+  { sequelize, tableName: "permissions", timestamps: true },
 );

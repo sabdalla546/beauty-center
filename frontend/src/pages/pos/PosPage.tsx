@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { ClipLoader } from "react-spinners";
 import { Gift, Search, ShoppingCart, UserPlus, Wallet, X } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { isOverpayError } from "@/hooks/pos/usePosMutations";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -33,6 +34,8 @@ import { usePaymentMethods } from "@/hooks/paymentMethods/usePaymentMethods";
 import {
   useCancelPosOrder,
   useCreatePosOrder,
+  getApiErrorInfo,
+  type PosPayErrorDetails,
   usePayPosOrder,
   useRefundPosOrder,
 } from "@/hooks/pos/usePosMutations";
@@ -275,6 +278,16 @@ const PosPage: React.FC = () => {
     return roundKwd(createdOrder.totalKwd ?? totalKwd, 0);
   }, [createdOrder, totalKwd]);
 
+  useEffect(() => {
+    if (!createdOrder) return;
+    const safeRemaining = roundKwd(remainingKwd, 0);
+    setPaymentAmount((prev) => {
+      const safePrev = roundKwd(prev, 0);
+      if (safePrev <= 0) return safeRemaining;
+      return Math.min(safePrev, safeRemaining);
+    });
+  }, [createdOrder?.id, remainingKwd]);
+
   const formatKwd = (value: number) => {
     try {
       return new Intl.NumberFormat(i18n.language, {
@@ -311,23 +324,78 @@ const PosPage: React.FC = () => {
 
     if (!printWindow) return false;
 
+    // If backend already returns a full HTML doc, we still inject charset + print CSS
+    const baseCss = `
+    <style>
+      @page { size: 80mm auto; margin: 0; }
+      html, body { width: 80mm; margin: 0; padding: 0; }
+      body {
+        font-family: Tahoma, Arial, "Segoe UI", sans-serif;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      /* Make tables consistent */
+      table { width: 100%; border-collapse: collapse; }
+      * { box-sizing: border-box; }
+    </style>
+  `;
+
+    const ensureUtf8AndCss = (docHtml: string) => {
+      const hasHtmlTag = /<html[\s>]/i.test(docHtml);
+      const hasHeadTag = /<head[\s>]/i.test(docHtml);
+      const hasCharset = /charset\s*=\s*["']?utf-8/i.test(docHtml);
+
+      // Full document: inject into <head>
+      if (hasHtmlTag && hasHeadTag) {
+        let out = docHtml;
+        if (!hasCharset) {
+          out = out.replace(
+            /<head[^>]*>/i,
+            (m) => `${m}\n<meta charset="utf-8" />\n`,
+          );
+        }
+        out = out.replace(/<head[^>]*>/i, (m) => `${m}\n${baseCss}\n`);
+        return out;
+      }
+
+      // Fragment: wrap it
+      return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    ${baseCss}
+  </head>
+  <body>${docHtml}</body>
+</html>`;
+    };
+
+    const finalHtml = ensureUtf8AndCss(safeHtml);
+
     printWindow.document.open();
-    printWindow.document.write(safeHtml);
+    printWindow.document.write(finalHtml);
     printWindow.document.close();
 
     const runPrint = () => {
       try {
         printWindow.focus();
         printWindow.print();
+
+        // close after print (optional)
+        setTimeout(() => {
+          try {
+            printWindow.close();
+          } catch {}
+        }, 500);
       } catch {
-        // ignore window print errors
+        // ignore
       }
     };
 
     if (printWindow.document.readyState === "complete") {
-      setTimeout(runPrint, 120);
+      setTimeout(runPrint, 150);
     } else {
-      printWindow.onload = () => setTimeout(runPrint, 120);
+      printWindow.onload = () => setTimeout(runPrint, 150);
     }
 
     return true;
@@ -585,17 +653,59 @@ const PosPage: React.FC = () => {
     );
   };
 
-  const handlePayOrder = () => {
+  const handlePayOrder = async () => {
     if (!createdOrder) return;
     const methodId = Number(paymentMethod);
     if (!methodId) return;
-    const amountKwd = roundKwd(paymentAmount, 0);
+
+    const orderId = Number(createdOrder.id);
     const popup = window.open("", "_blank", "width=420,height=900");
     setIsPrintingInvoice(true);
 
-    payOrderMutation.mutate(
-      {
-        orderId: createdOrder.id,
+    const applyOverpayDetails = (details: PosPayErrorDetails) => {
+      const remainingFils = Number(details.remainingFils);
+      const orderTotalFils = Number(details.orderTotalFils);
+      const paidFilsBefore = Number(details.paidFilsBefore);
+
+      if (Number.isFinite(remainingFils) && remainingFils >= 0) {
+        setPaymentAmount(roundKwd(remainingFils / 1000, 0));
+      }
+
+      setCreatedOrder((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          totalFils: Number.isFinite(orderTotalFils)
+            ? orderTotalFils
+            : prev.totalFils,
+          totalKwd: Number.isFinite(orderTotalFils)
+            ? orderTotalFils / 1000
+            : prev.totalKwd,
+          paidFils: Number.isFinite(paidFilsBefore)
+            ? paidFilsBefore
+            : prev.paidFils,
+          paidKwd: Number.isFinite(paidFilsBefore)
+            ? paidFilsBefore / 1000
+            : prev.paidKwd,
+          netPaidFils: Number.isFinite(paidFilsBefore)
+            ? paidFilsBefore
+            : prev.netPaidFils,
+          netPaidKwd: Number.isFinite(paidFilsBefore)
+            ? paidFilsBefore / 1000
+            : prev.netPaidKwd,
+          remainingFils: Number.isFinite(remainingFils)
+            ? remainingFils
+            : prev.remainingFils,
+          remainingKwd: Number.isFinite(remainingFils)
+            ? remainingFils / 1000
+            : prev.remainingKwd,
+        };
+      });
+    };
+
+    const submitPayment = async (amountKwd: number) => {
+      const response = await payOrderMutation.mutateAsync({
+        orderId,
         payments: [
           {
             amountKwd,
@@ -603,90 +713,140 @@ const PosPage: React.FC = () => {
             providerReference: paymentReference.trim() || null,
           },
         ],
-      },
-      {
-        onSuccess: (response: any) => {
-          const result = response?.data?.data as
-            | PosPayResponse["data"]
-            | undefined;
-          if (!result) {
-            if (popup && !popup.closed) popup.close();
-            return;
-          }
+      });
 
-          setCreatedOrder((prev) => {
-            if (!prev) return prev;
-            const paidFils = Number(result.paidFils ?? prev.paidFils ?? 0);
-            const remainingFils = Number(
-              result.remainingFils ?? prev.remainingFils ?? 0,
-            );
-            return {
-              ...prev,
-              status: result.status ?? prev.status,
-              paidFils: Number.isFinite(paidFils) ? paidFils : prev.paidFils,
-              remainingFils: Number.isFinite(remainingFils)
-                ? remainingFils
-                : prev.remainingFils,
-              netPaidFils: Number.isFinite(paidFils)
-                ? paidFils
-                : prev.netPaidFils,
-              paidKwd: Number.isFinite(paidFils)
-                ? paidFils / 1000
-                : prev.paidKwd,
-              remainingKwd: Number.isFinite(remainingFils)
-                ? remainingFils / 1000
-                : prev.remainingKwd,
-              netPaidKwd: Number.isFinite(paidFils)
-                ? paidFils / 1000
-                : prev.netPaidKwd,
-            };
+      const result = response?.data?.data as PosPayResponse["data"] | undefined;
+      if (!result) {
+        if (popup && !popup.closed) popup.close();
+        return;
+      }
+
+      setCreatedOrder((prev) => {
+        if (!prev) return prev;
+        const paidFils = Number(result.paidFils ?? prev.paidFils ?? 0);
+        const remainingFils = Number(
+          result.remainingFils ?? prev.remainingFils ?? 0,
+        );
+        const invoice = result.invoice80;
+        const invoiceSubtotalFils = Number(invoice?.subtotalFils);
+        const invoiceDiscountFils = Number(invoice?.discountFils);
+        const invoiceTaxFils = Number(invoice?.taxFils);
+        const invoiceTotalFils = Number(invoice?.totalFils);
+        return {
+          ...prev,
+          status: result.status ?? prev.status,
+          paidFils: Number.isFinite(paidFils) ? paidFils : prev.paidFils,
+          remainingFils: Number.isFinite(remainingFils)
+            ? remainingFils
+            : prev.remainingFils,
+          netPaidFils: Number.isFinite(paidFils) ? paidFils : prev.netPaidFils,
+          subtotalFils: Number.isFinite(invoiceSubtotalFils)
+            ? invoiceSubtotalFils
+            : prev.subtotalFils,
+          discountFils: Number.isFinite(invoiceDiscountFils)
+            ? invoiceDiscountFils
+            : prev.discountFils,
+          taxFils: Number.isFinite(invoiceTaxFils)
+            ? invoiceTaxFils
+            : prev.taxFils,
+          totalFils: Number.isFinite(invoiceTotalFils)
+            ? invoiceTotalFils
+            : prev.totalFils,
+          paidKwd: Number.isFinite(paidFils) ? paidFils / 1000 : prev.paidKwd,
+          remainingKwd: Number.isFinite(remainingFils)
+            ? remainingFils / 1000
+            : prev.remainingKwd,
+          netPaidKwd: Number.isFinite(paidFils)
+            ? paidFils / 1000
+            : prev.netPaidKwd,
+          subtotalKwd:
+            typeof invoice?.subtotalKwd === "number"
+              ? invoice.subtotalKwd
+              : prev.subtotalKwd,
+          discountKwd:
+            typeof invoice?.discountKwd === "number"
+              ? invoice.discountKwd
+              : prev.discountKwd,
+          taxKwd:
+            typeof invoice?.taxKwd === "number" ? invoice.taxKwd : prev.taxKwd,
+          totalKwd:
+            typeof invoice?.totalKwd === "number"
+              ? invoice.totalKwd
+              : prev.totalKwd,
+        };
+      });
+
+      const invoice80Html =
+        typeof result.invoice80Html === "string" ? result.invoice80Html : "";
+      if (invoice80Html.trim()) {
+        setLastInvoice80Html(invoice80Html);
+        const printed = printInvoice80Html(invoice80Html, popup);
+        if (!printed) {
+          toast({
+            variant: "destructive",
+            title: t("error") || "Error",
+            description:
+              t("pos.invoice_print_failed") || "Unable to open print window.",
           });
+        }
+      } else {
+        if (popup && !popup.closed) popup.close();
+        toast({
+          variant: "destructive",
+          title: t("error") || "Error",
+          description:
+            t("pos.invoice_unavailable") || "Invoice is not available.",
+        });
+      }
 
-          const invoice80Html =
-            typeof result.invoice80Html === "string"
-              ? result.invoice80Html
-              : "";
-          if (invoice80Html.trim()) {
-            setLastInvoice80Html(invoice80Html);
-            const printed = printInvoice80Html(invoice80Html, popup);
-            if (!printed) {
-              toast({
-                variant: "destructive",
-                title: t("error") || "Error",
-                description:
-                  t("pos.invoice_print_failed") ||
-                  "Unable to open print window.",
-              });
-            }
-          } else {
-            if (popup && !popup.closed) popup.close();
-            toast({
-              variant: "destructive",
-              title: t("error") || "Error",
-              description:
-                t("pos.invoice_unavailable") || "Invoice is not available.",
-            });
-          }
+      const nextRemaining = Number(result.remainingFils ?? 0);
+      if (Number.isFinite(nextRemaining)) {
+        setPaymentAmount(Math.max(0, nextRemaining / 1000));
+      }
 
-          const nextRemaining = Number(result.remainingFils ?? 0);
-          if (Number.isFinite(nextRemaining)) {
-            setPaymentAmount(Math.max(0, nextRemaining / 1000));
-          }
+      queryClient.invalidateQueries({
+        queryKey: ["pos-order", orderId],
+      });
 
-          if (createdOrder?.id) {
-            queryClient.invalidateQueries({
-              queryKey: ["pos-order", createdOrder.id],
-            });
-          }
-        },
-        onError: () => {
+      return result;
+    };
+
+    try {
+      const initialAmount = Math.min(
+        roundKwd(paymentAmount, 0),
+        roundKwd(remainingKwd, 0),
+      );
+      if (initialAmount <= 0) return;
+
+      try {
+        await submitPayment(initialAmount);
+      } catch (error: any) {
+        if (!isOverpayError(error)) {
           if (popup && !popup.closed) popup.close();
-        },
-        onSettled: () => {
-          setIsPrintingInvoice(false);
-        },
-      },
-    );
+          return;
+        }
+
+        const info = getApiErrorInfo(error);
+        const details = (info.details || {}) as PosPayErrorDetails;
+
+        applyOverpayDetails(details);
+
+        const serverRemainingFils = Number(details.remainingFils);
+        const serverRemainingKwd = Number.isFinite(serverRemainingFils)
+          ? roundKwd(serverRemainingFils / 1000, 0)
+          : 0;
+
+        if (serverRemainingKwd <= 0) {
+          if (popup && !popup.closed) popup.close();
+          return;
+        }
+
+        // ✅ retry with server remaining
+        await submitPayment(serverRemainingKwd);
+      }
+    } finally {
+      setIsPrintingInvoice(false);
+    }
   };
 
   const handleCancelOrder = () => {
@@ -1432,9 +1592,14 @@ const PosPage: React.FC = () => {
                           min={0}
                           step={0.001}
                           value={paymentAmount}
-                          onChange={(e) =>
-                            setPaymentAmount(Number(e.target.value))
-                          }
+                          onChange={(e) => {
+                            const raw = roundKwd(Number(e.target.value), 0);
+                            const capped = Math.min(
+                              raw,
+                              roundKwd(remainingKwd, 0),
+                            );
+                            setPaymentAmount(capped);
+                          }}
                           disabled={isOrderBusy}
                         />
                         <p className="text-xs text-muted-foreground mt-1">
@@ -1443,6 +1608,20 @@ const PosPage: React.FC = () => {
                             {formatKwd(remainingKwd)}
                           </span>
                         </p>
+                        <div className="mt-2 flex justify-end">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              setPaymentAmount(roundKwd(remainingKwd, 0))
+                            }
+                            disabled={isOrderBusy || remainingKwd <= 0}
+                          >
+                            {t("pos.pay_full_remaining") ||
+                              "Use remaining amount"}
+                          </Button>
+                        </div>
                         {paymentTooHigh ? (
                           <p className="text-xs text-red-500 mt-1">
                             {t("pos.payment_mismatch") ||

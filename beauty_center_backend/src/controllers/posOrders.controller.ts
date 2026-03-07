@@ -1,17 +1,13 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../errors/AppError";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 import { Op, WhereOptions, fn, literal } from "sequelize";
 import { filsToKwd, kwdToFils } from "../utils/money";
 import { createPosOrderSchema, payPosOrderSchema } from "../validators/pos";
 import { listPosOrdersSchema } from "../validators/posOrders";
-
 // ✅ Packages: auto-deduction + usage ledger
-import {
-  findActivePackageForService,
-  consumePackage,
-} from "../services/packages.service";
+import { applyPackageToOrderTx } from "../services/packages.service";
 
 import {
   Customer,
@@ -329,7 +325,9 @@ const buildPosInvoice80 = async (orderId: number) => {
     : [];
 
   const completedPayments = Array.isArray(orderJson.payments)
-    ? orderJson.payments.filter((payment: any) => payment.status === "completed")
+    ? orderJson.payments.filter(
+        (payment: any) => payment.status === "completed",
+      )
     : [];
 
   const paymentLines = completedPayments.map((payment: any) => ({
@@ -344,7 +342,10 @@ const buildPosInvoice80 = async (orderId: number) => {
 
   const paidFils = completedPayments
     .filter((payment: any) => Number(payment.amountFils || 0) > 0)
-    .reduce((sum: number, payment: any) => sum + Number(payment.amountFils || 0), 0);
+    .reduce(
+      (sum: number, payment: any) => sum + Number(payment.amountFils || 0),
+      0,
+    );
 
   const refundedFils = completedPayments
     .filter((payment: any) => Number(payment.amountFils || 0) < 0)
@@ -503,7 +504,9 @@ const finalizeOrderAsPaid = async (params: {
       const qty = Math.max(1, Number(it.quantity || 1));
       const startAt = now;
       const expiresAt = new Date(startAt);
-      expiresAt.setDate(expiresAt.getDate() + Number((plan as any).validDays || 0));
+      expiresAt.setDate(
+        expiresAt.getDate() + Number((plan as any).validDays || 0),
+      );
 
       await CustomerPackage.create(
         {
@@ -514,6 +517,8 @@ const finalizeOrderAsPaid = async (params: {
           status: "active",
           totalSessions: Number((plan as any).sessionsCount) * qty,
           usedSessions: 0,
+          totalValueFils: Number((plan as any).priceCents) * qty, // ✅ fils
+          usedValueFils: 0,
           createdBy: userId,
         } as any,
         { transaction },
@@ -533,25 +538,27 @@ export const createPosOrder = asyncHandler(
       return res.status(400).json({
         error: {
           message: req.t?.("pos.invalid_input", "Invalid input"),
+          code: "pos.invalid_input",
           details: parsed.error.flatten(),
         },
       });
     }
 
     const userId = (req as any).user?.id;
-    if (!userId)
+    if (!userId) {
       throw new AppError(
         req.t?.("auth.unauthorized", "Unauthorized") ?? "Unauthorized",
         401,
         "auth.unauthorized",
       );
+    }
 
-    const t = await sequelize.transaction();
+    const trx = await sequelize.transaction();
     try {
       const openShift = await ShiftSession.findOne({
         where: { userId, status: "open" },
-        transaction: t,
-        lock: t.LOCK.UPDATE,
+        transaction: trx,
+        lock: trx.LOCK.UPDATE,
         order: [["id", "DESC"]],
       });
       if (!openShift) {
@@ -566,20 +573,24 @@ export const createPosOrder = asyncHandler(
       const data = parsed.data;
 
       if (data.customerId) {
-        const c = await Customer.findByPk(data.customerId, { transaction: t });
-        if (!c)
+        const c = await Customer.findByPk(data.customerId, {
+          transaction: trx,
+        });
+        if (!c) {
           throw new AppError(
             req.t?.("customer.not_found", "Customer not found") ??
               "Customer not found",
             404,
             "customer.not_found",
           );
+        }
       }
 
       const now = new Date();
 
       // ✅ build items in FILS server-side (do NOT trust client totals)
       const itemsFils: any[] = [];
+
       for (const i of data.items) {
         const qty = Math.max(1, Number(i.quantity ?? 1));
 
@@ -587,12 +598,7 @@ export const createPosOrder = asyncHandler(
         let unitPriceFils = kwdToFils(i.unitPriceKwd);
         let totalPriceFils = unitPriceFils * qty;
 
-        // default (no package coverage)
-        let coveredByCustomerPackageId: number | null = null;
-        let coveredQty: number | null = null;
-        let uncoveredQty: number | null = null;
-
-        // ✅ 1) PACKAGE: validate price from DB (ignore client price)
+        // ✅ PACKAGE: validate price from DB (ignore client price)
         if (i.lineType === "package") {
           if (!data.customerId) {
             throw new AppError(
@@ -611,8 +617,8 @@ export const createPosOrder = asyncHandler(
 
           const planId = Number(i.referenceId);
           const plan = await PackagePlan.findByPk(planId, {
-            transaction: t,
-            lock: t.LOCK.UPDATE,
+            transaction: trx,
+            lock: trx.LOCK.UPDATE,
           });
 
           if (!plan || !(plan as any).isActive) {
@@ -623,8 +629,6 @@ export const createPosOrder = asyncHandler(
             );
           }
 
-          // ✅ override price using DB
-          // Package plans store price in `priceCents` (fils), while some paths may expose `priceFils`.
           const dbPlanPriceFils = Number(
             (plan as any).priceFils ??
               (plan as any).priceCents ??
@@ -646,42 +650,11 @@ export const createPosOrder = asyncHandler(
           totalPriceFils = unitPriceFils * qty;
         }
 
-        // ✅ 2) SERVICES: auto deduction (requires customerId)
-        if (i.lineType === "service" && data.customerId && i.referenceId) {
-          const serviceId = Number(i.referenceId);
-
-          const activePkg = await findActivePackageForService({
-            customerId: Number(data.customerId),
-            serviceId,
-            now,
-            transaction: t,
-          });
-
-          if (activePkg) {
-            const remaining =
-              Number((activePkg as any).totalSessions) -
-              Number((activePkg as any).usedSessions);
-
-            const cover = Math.min(qty, Math.max(0, remaining));
-            const uncover = qty - cover;
-
-            coveredByCustomerPackageId = Number((activePkg as any).id);
-            coveredQty = cover || null;
-            uncoveredQty = uncover || null;
-
-            // pay only for uncovered qty
-            totalPriceFils = unitPriceFils * uncover;
-          }
-        }
-
         itemsFils.push({
           ...i,
           quantity: qty,
           unitPriceFils,
           totalPriceFils,
-          coveredByCustomerPackageId,
-          coveredQty,
-          uncoveredQty,
         });
       }
 
@@ -690,7 +663,10 @@ export const createPosOrder = asyncHandler(
       );
       const discountFils = kwdToFils(data.discountKwd ?? 0);
       const taxFils = kwdToFils(data.taxKwd ?? 0);
-      const totalFils = Math.max(0, subtotalFils - discountFils + taxFils);
+      const totalFilsBeforePkg = Math.max(
+        0,
+        subtotalFils - discountFils + taxFils,
+      );
 
       const order = await Order.create(
         {
@@ -702,72 +678,78 @@ export const createPosOrder = asyncHandler(
           subtotalFils,
           discountFils,
           taxFils,
-          totalFils,
+          totalFils: totalFilsBeforePkg,
         } as any,
-        { transaction: t },
+        { transaction: trx },
       );
 
-      // ✅ create items + consume package after item creation (need orderItemId)
+      // ✅ create items
       for (const it of itemsFils) {
-        const created = await OrderItem.create(
+        await OrderItem.create(
           {
             orderId: (order as any).id,
             lineType: it.lineType,
             referenceId: it.referenceId ?? null,
             description: it.description ?? null,
-
             quantity: it.quantity,
             unitPriceFils: it.unitPriceFils,
             totalPriceFils: it.totalPriceFils,
-
             staffId: it.staffId ?? null,
             roomId: it.roomId ?? null,
             appointmentId: it.appointmentId ?? null,
-
-            coveredByCustomerPackageId: it.coveredByCustomerPackageId ?? null,
-            coveredQty: it.coveredQty ?? null,
-            uncoveredQty: it.uncoveredQty ?? null,
           } as any,
-          { transaction: t },
+          { transaction: trx },
         );
-
-        // ✅ consume package for covered services (ledger usage)
-        const pkgId = Number(it.coveredByCustomerPackageId || 0);
-        const cover = Number(it.coveredQty || 0);
-
-        if (pkgId && cover > 0 && it.lineType === "service" && it.referenceId) {
-          await consumePackage({
-            customerPackageId: pkgId,
-            appointmentId: it.appointmentId ?? null,
-            orderItemId: Number((created as any).id),
-            serviceId: Number(it.referenceId),
-            qty: cover,
-            userId,
-            now,
-            transaction: t,
-          });
-        }
-
-        // ⚠️ IMPORTANT:
-        // DO NOT create CustomerPackage here for lineType="package"
-        // because order is still "open" and may be partially paid or cancelled.
-        // CustomerPackage will be created ONLY when the order becomes "paid" inside payPosOrder.
       }
 
-      // If total is zero (e.g. fully covered by customer package), close order immediately.
-      if (Number(totalFils) === 0) {
+      // ✅ NEW: apply package at order creation (fixes overpay)
+      if (
+        Number(order.customerId || 0) > 0 &&
+        Number(order.totalFils || 0) > 0
+      ) {
+        const pkgApply = await applyPackageToOrderTx({
+          customerId: Number(order.customerId),
+          orderId: Number(order.id),
+          userId,
+          now,
+          transaction: trx,
+        });
+
+        if (pkgApply.applied && pkgApply.coveredFils > 0) {
+          const prevDiscount = Number((order as any).discountFils || 0);
+          const prevTotal = Number((order as any).totalFils || 0);
+          const covered = Number(pkgApply.coveredFils || 0);
+
+          await order.update(
+            {
+              discountFils: prevDiscount + covered,
+              totalFils: Math.max(0, prevTotal - covered),
+            } as any,
+            { transaction: trx },
+          );
+
+          await (order as any).reload({
+            transaction: trx,
+            lock: trx.LOCK.UPDATE,
+          });
+        }
+      }
+
+      // ✅ if total is zero, finalize paid now
+      if (Number((order as any).totalFils || 0) === 0) {
         await finalizeOrderAsPaid({
           order,
           userId,
           now,
-          transaction: t,
+          transaction: trx,
         });
+        await (order as any).reload({ transaction: trx });
       }
 
-      await t.commit();
-      res.status(201).json({ data: order });
+      await trx.commit();
+      return res.status(201).json({ data: order });
     } catch (e) {
-      await t.rollback();
+      await trx.rollback();
       throw e;
     }
   },
@@ -865,22 +847,22 @@ export const payPosOrder = asyncHandler(async (req: Request, res: Response) => {
     return res.status(400).json({
       error: {
         message: req.t?.("pos.invalid_input", "Invalid input"),
+        code: "pos.invalid_input",
         details: parsed.error.flatten(),
       },
     });
   }
 
   const userId = (req as any).user?.id;
-  if (!userId) throw new AppError("Unauthorized", 401);
+  if (!userId) throw new AppError("Unauthorized", 401, "auth.unauthorized");
 
-  const result = await sequelize.transaction(async (t) => {
+  const result = await sequelize.transaction(async (trx) => {
     const now = new Date();
 
-    // ✅ Require open shift for financial ops
     const openShift = await ShiftSession.findOne({
       where: { userId, status: "open" },
-      transaction: t,
-      lock: t.LOCK.UPDATE,
+      transaction: trx,
+      lock: trx.LOCK.UPDATE,
       order: [["id", "DESC"]],
     });
     if (!openShift) {
@@ -892,14 +874,14 @@ export const payPosOrder = asyncHandler(async (req: Request, res: Response) => {
       );
     }
 
-    // 1) lock order
     const order = await Order.findByPk(id, {
-      transaction: t,
-      lock: t.LOCK.UPDATE,
+      transaction: trx,
+      lock: trx.LOCK.UPDATE,
     });
-    if (!order) throw new AppError("Order not found", 404);
+    if (!order)
+      throw new AppError("Order not found", 404, "pos.order_not_found");
 
-    // ✅ ensure payment goes to same shift
+    // ensure payment goes to same shift
     if (
       order.shiftSessionId &&
       order.shiftSessionId !== (openShift as any).id
@@ -915,10 +897,9 @@ export const payPosOrder = asyncHandler(async (req: Request, res: Response) => {
       );
     }
 
-    // ✅ if order has no shiftSessionId (legacy) attach it
     if (!order.shiftSessionId) {
       await order.update({ shiftSessionId: (openShift as any).id } as any, {
-        transaction: t,
+        transaction: trx,
       });
     }
 
@@ -927,60 +908,60 @@ export const payPosOrder = asyncHandler(async (req: Request, res: Response) => {
         orderId: order.id,
         status: "paid",
         alreadyPaid: true,
-        paidFils: order.totalFils,
+        paidFils: Number(order.totalFils || 0),
         remainingFils: 0,
+        packageCoveredFils: 0,
       };
     }
 
-    if (!["open", "partially_paid"].includes(order.status)) {
+    if (!["open", "partially_paid"].includes(String(order.status))) {
       throw new AppError("Order is not payable", 400, "pos.not_payable", {
         status: order.status,
       });
     }
 
-    if (order.totalFils <= 0) throw new AppError("Invalid order total", 400);
+    const orderTotalNow = Number((order as any).totalFils || 0);
+    if (orderTotalNow <= 0) {
+      throw new AppError("Invalid order total", 400, "pos.invalid_total");
+    }
 
-    // 2) paid so far (completed only)
+    // paid so far (completed only)
     const paidPayments = await Payment.findAll({
       where: { orderId: id, status: "completed" },
-      transaction: t,
-      lock: t.LOCK.UPDATE,
+      transaction: trx,
+      lock: trx.LOCK.UPDATE,
     });
 
     const paidFilsBefore = paidPayments.reduce(
       (s, p) => s + Number(p.amountFils || 0),
       0,
     );
-
-    const remainingFilsBefore = Number(order.totalFils) - paidFilsBefore;
+    const remainingFilsBefore = Math.max(0, orderTotalNow - paidFilsBefore);
 
     if (remainingFilsBefore <= 0) {
-      // safety
-      await finalizeOrderAsPaid({
-        order,
-        userId,
-        now,
-        transaction: t,
-      });
+      await finalizeOrderAsPaid({ order, userId, now, transaction: trx });
       return {
         orderId: order.id,
         status: "paid",
         alreadyPaid: true,
-        paidFils: Number(order.totalFils),
+        paidFils: orderTotalNow,
         remainingFils: 0,
+        packageCoveredFils: 0,
       };
     }
 
-    // 3) incoming payments (KWD -> FILS)
+    // incoming payments
     const incoming = parsed.data.payments.map((p) => ({
       methodId: p.methodId,
       amountFils: kwdToFils(p.amountKwd),
       providerReference: p.providerReference ?? null,
     }));
 
-    const incomingSum = incoming.reduce((s, p) => s + p.amountFils, 0);
+    const incomingSum = incoming.reduce(
+      (s, p) => s + Number(p.amountFils || 0),
+      0,
+    );
 
-    // ✅ Partial Payment rules
     if (incomingSum <= 0) {
       throw new AppError(
         "Payment amount must be greater than 0",
@@ -990,25 +971,32 @@ export const payPosOrder = asyncHandler(async (req: Request, res: Response) => {
     }
 
     if (incomingSum > remainingFilsBefore) {
+      const details = {
+        remainingFils: remainingFilsBefore,
+        incomingSum,
+        orderTotalFils: orderTotalNow,
+        paidFilsBefore,
+        packageCoveredFils: 0,
+      };
+
       throw new AppError(
         "Payments total cannot exceed remaining amount",
         400,
         "pos.overpay_not_allowed",
-        { remainingFils: remainingFilsBefore, incomingSum },
+        details,
       );
     }
 
-    // 4) validate payment methods active
+    // validate methods active
     const methodIds = [...new Set(incoming.map((p) => p.methodId))];
     const methods = await PaymentMethod.findAll({
       where: { id: methodIds, isActive: true },
-      transaction: t,
+      transaction: trx,
     });
     if (methods.length !== methodIds.length) {
       throw new AppError("Invalid payment method", 400, "pos.invalid_method");
     }
 
-    // 5) create payment rows
     await Payment.bulkCreate(
       incoming.map((p) => ({
         orderId: id,
@@ -1016,33 +1004,29 @@ export const payPosOrder = asyncHandler(async (req: Request, res: Response) => {
         amountFils: p.amountFils,
         status: "completed",
         providerReference: p.providerReference,
-        shiftSessionId: (openShift as any).id, // ✅ add this
+        shiftSessionId: (openShift as any).id,
       })) as any,
-      { transaction: t },
+      { transaction: trx },
     );
 
     const paidFilsAfter = paidFilsBefore + incomingSum;
-    const remainingFilsAfter = Number(order.totalFils) - paidFilsAfter;
+    const remainingFilsAfter = Math.max(0, orderTotalNow - paidFilsAfter);
 
-    // 6) If fully paid now -> finalize order
     if (remainingFilsAfter === 0) {
-      await finalizeOrderAsPaid({
-        order,
-        userId,
-        now,
-        transaction: t,
-      });
-
+      await finalizeOrderAsPaid({ order, userId, now, transaction: trx });
       return {
         orderId: order.id,
         status: "paid",
         alreadyPaid: false,
         paidFils: paidFilsAfter,
         remainingFils: 0,
+        packageCoveredFils: 0,
       };
     }
-    // 7) Otherwise -> partially paid
-    await order.update({ status: "partially_paid" }, { transaction: t });
+
+    await order.update({ status: "partially_paid" } as any, {
+      transaction: trx,
+    });
 
     return {
       orderId: order.id,
@@ -1050,6 +1034,7 @@ export const payPosOrder = asyncHandler(async (req: Request, res: Response) => {
       alreadyPaid: false,
       paidFils: paidFilsAfter,
       remainingFils: remainingFilsAfter,
+      packageCoveredFils: 0,
     };
   });
 
@@ -1059,17 +1044,11 @@ export const payPosOrder = asyncHandler(async (req: Request, res: Response) => {
     status: "success",
     data: {
       ...result,
-      invoice80: invoice
-        ? {
-            ...invoice,
-            html: undefined,
-          }
-        : null,
+      invoice80: invoice ? { ...invoice, html: undefined } : null,
       invoice80Html: invoice?.html ?? null,
     },
   });
 });
-
 export const listPosOrders = asyncHandler(
   async (req: Request, res: Response) => {
     const parsed = listPosOrdersSchema.safeParse(req.query ?? {});
@@ -1340,4 +1319,3 @@ export const cancelOrderAndRefundPaidAmount = asyncHandler(
     res.json({ status: "success", data: result });
   },
 );
-

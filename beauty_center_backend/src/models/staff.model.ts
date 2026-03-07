@@ -6,7 +6,7 @@ import {
   InferCreationAttributes,
   Model,
 } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 export class Staff extends Model<
   InferAttributes<Staff>,
@@ -49,7 +49,7 @@ Staff.init(
     paranoid: true, // enable soft deletes via deletedAt
     underscored: true,
     indexes: [{ fields: ["id"] }],
-  }
+  },
 );
 
 /**
@@ -110,7 +110,7 @@ Staff.addHook(
     } catch (err) {
       // swallow hook errors to not block destroy
     }
-  }
+  },
 );
 
 export default Staff;

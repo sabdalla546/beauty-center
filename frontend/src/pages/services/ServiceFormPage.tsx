@@ -187,18 +187,10 @@ const ServiceFormPage: React.FC = () => {
             {t("services.return_to_list") ||
               "Please return to the services list and select a service to edit."}
           </p>
-          <Button onClick={() => navigate("/services")}>
+          <Button type="button" onClick={() => navigate("/services")}>
             {t("services.back_to_services") || "Back to Services"}
           </Button>
         </Card>
-      </div>
-    );
-  }
-
-  if (createMutation.isPending || updateMutation.isPending) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <ClipLoader size={50} color="hsl(var(--primary))" />
       </div>
     );
   }
@@ -216,6 +208,7 @@ const ServiceFormPage: React.FC = () => {
       <div className="min-h-screen p-4 my-4 bg-background text-foreground" dir={dir}>
         <div className="mx-auto max-w-6xl space-y-6">
           <button
+            type="button"
             onClick={() => navigate("/services")}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors mb-2 group"
           >

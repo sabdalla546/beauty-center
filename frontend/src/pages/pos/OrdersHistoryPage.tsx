@@ -27,6 +27,8 @@ import { usePaymentMethods } from "@/hooks/paymentMethods/usePaymentMethods";
 import { usePosOrdersHistory } from "@/hooks/pos/usePosOrders";
 import {
   useCancelPosOrder,
+  getApiErrorInfo,
+  type PosPayErrorDetails,
   usePayPosOrder,
   useRefundPosOrder,
 } from "@/hooks/pos/usePosMutations";
@@ -142,7 +144,7 @@ const OrdersHistoryPage: React.FC = () => {
 
   const handlePayOrder = () => {
     if (!detailOrder || detailOrder.status === "paid") return;
-    const remainingKwd = Number(
+    const remainingKwdRaw = Number(
       detailOrder.remainingKwd ??
         (Number(
           detailOrder.remainingFils ??
@@ -154,57 +156,110 @@ const OrdersHistoryPage: React.FC = () => {
         ) / 1000 ||
           0),
     );
+    const remainingKwd = Math.max(0, Math.round(remainingKwdRaw * 1000) / 1000);
     if (!remainingKwd) return;
     const methodId = Number(payMethod);
     if (!methodId) return;
-    payOrderMutation.mutate(
-      {
+    const mutatePay = (amountKwd: number) =>
+      payOrderMutation.mutateAsync({
         orderId: detailOrder.id,
         payments: [
           {
-            amountKwd: remainingKwd,
+            amountKwd,
             methodId,
             providerReference: null,
           },
         ],
-      },
-      {
-        onSuccess: (response: any) => {
-          const result = response?.data?.data;
-          if (result) {
-            setSelectedOrder((prev) => {
-              if (!prev) return prev;
-              const paidFils = Number(result.paidFils ?? prev.paidFils ?? 0);
-              const remainingFils = Number(
-                result.remainingFils ?? prev.remainingFils ?? 0,
-              );
-              return {
-                ...prev,
-                status: result.status ?? prev.status,
-                paidFils: Number.isFinite(paidFils) ? paidFils : prev.paidFils,
-                remainingFils: Number.isFinite(remainingFils)
-                  ? remainingFils
-                  : prev.remainingFils,
-                netPaidFils: Number.isFinite(paidFils)
-                  ? paidFils
-                  : prev.netPaidFils,
-                paidKwd: Number.isFinite(paidFils)
-                  ? paidFils / 1000
-                  : prev.paidKwd,
-                remainingKwd: Number.isFinite(remainingFils)
-                  ? remainingFils / 1000
-                  : prev.remainingKwd,
-                netPaidKwd: Number.isFinite(paidFils)
-                  ? paidFils / 1000
-                  : prev.netPaidKwd,
-              };
-            });
-          }
-          ordersQuery.refetch();
-          selectedOrderQuery.refetch();
-        },
-      },
-    );
+      });
+
+    const applyResult = (result: any) => {
+      if (!result) return;
+      setSelectedOrder((prev) => {
+        if (!prev) return prev;
+        const paidFils = Number(result.paidFils ?? prev.paidFils ?? 0);
+        const remainingFils = Number(result.remainingFils ?? prev.remainingFils ?? 0);
+        return {
+          ...prev,
+          status: result.status ?? prev.status,
+          paidFils: Number.isFinite(paidFils) ? paidFils : prev.paidFils,
+          remainingFils: Number.isFinite(remainingFils)
+            ? remainingFils
+            : prev.remainingFils,
+          netPaidFils: Number.isFinite(paidFils) ? paidFils : prev.netPaidFils,
+          paidKwd: Number.isFinite(paidFils) ? paidFils / 1000 : prev.paidKwd,
+          remainingKwd: Number.isFinite(remainingFils)
+            ? remainingFils / 1000
+            : prev.remainingKwd,
+          netPaidKwd: Number.isFinite(paidFils) ? paidFils / 1000 : prev.netPaidKwd,
+        };
+      });
+    };
+
+    const applyOverpayDetails = (details: PosPayErrorDetails) => {
+      const remainingFils = Number(details.remainingFils);
+      const orderTotalFils = Number(details.orderTotalFils);
+      const paidFilsBefore = Number(details.paidFilsBefore);
+
+      setSelectedOrder((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          totalFils: Number.isFinite(orderTotalFils)
+            ? orderTotalFils
+            : prev.totalFils,
+          totalKwd: Number.isFinite(orderTotalFils)
+            ? orderTotalFils / 1000
+            : prev.totalKwd,
+          paidFils: Number.isFinite(paidFilsBefore)
+            ? paidFilsBefore
+            : prev.paidFils,
+          paidKwd: Number.isFinite(paidFilsBefore)
+            ? paidFilsBefore / 1000
+            : prev.paidKwd,
+          netPaidFils: Number.isFinite(paidFilsBefore)
+            ? paidFilsBefore
+            : prev.netPaidFils,
+          netPaidKwd: Number.isFinite(paidFilsBefore)
+            ? paidFilsBefore / 1000
+            : prev.netPaidKwd,
+          remainingFils: Number.isFinite(remainingFils)
+            ? remainingFils
+            : prev.remainingFils,
+          remainingKwd: Number.isFinite(remainingFils)
+            ? remainingFils / 1000
+            : prev.remainingKwd,
+        };
+      });
+    };
+
+    mutatePay(remainingKwd)
+      .then((response: any) => {
+        applyResult(response?.data?.data);
+        ordersQuery.refetch();
+        selectedOrderQuery.refetch();
+      })
+      .catch((error: any) => {
+        const info = getApiErrorInfo(error);
+        if (info.code !== "pos.overpay_not_allowed") return;
+
+        const details = (info.details || {}) as PosPayErrorDetails;
+        applyOverpayDetails(details);
+
+        const serverRemainingFils = Number(details.remainingFils);
+        const serverRemainingKwd = Number.isFinite(serverRemainingFils)
+          ? Math.max(0, Math.round((serverRemainingFils / 1000) * 1000) / 1000)
+          : 0;
+        if (serverRemainingKwd <= 0) return;
+        if (Math.abs(serverRemainingKwd - remainingKwd) < 0.001) return;
+
+        mutatePay(serverRemainingKwd)
+          .then((response: any) => {
+            applyResult(response?.data?.data);
+            ordersQuery.refetch();
+            selectedOrderQuery.refetch();
+          })
+          .catch(() => {});
+      });
   };
 
   const handleCancelOrder = () => {

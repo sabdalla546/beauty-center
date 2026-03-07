@@ -2,7 +2,7 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../errors/AppError";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 import { openShiftSchema, closeShiftSchema } from "../validators/shift";
 import { ShiftSession, Order, Payment, PaymentMethod } from "../models";

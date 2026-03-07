@@ -38,6 +38,7 @@ import AppointmentFormPage from "./pages/appointments/AppointmentFormPage";
 import AppointmentCheckoutPage from "./pages/appointments/AppointmentCheckoutPage";
 import PaymentMethodsPage from "./pages/paymentMethods/PaymentMethodsPage";
 import PaymentMethodFormPage from "./pages/paymentMethods/PaymentMethodFormPage";
+import ReportsPage from "./pages/reports/ReportsPage";
 //import UsersPage from "./pages/users/UsersPage";
 
 const queryClient = new QueryClient();
@@ -153,6 +154,7 @@ const AppRouter = () => (
             <Route path="shifts/open" element={<OpenShiftPage />} />
             <Route path="shifts/close" element={<CloseShiftPage />} />
             <Route path="shifts/summary" element={<ShiftSummaryPage />} />
+            <Route path="reports" element={<ReportsPage />} />
           </Route>
         </Routes>
 

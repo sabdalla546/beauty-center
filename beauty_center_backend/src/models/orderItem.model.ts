@@ -1,6 +1,6 @@
 // src/models/OrderItem.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 export class OrderItem extends Model {
   declare id: number;
@@ -14,7 +14,8 @@ export class OrderItem extends Model {
   declare quantity: number;
   declare unitPriceFils: number;
   declare totalPriceFils: number;
-
+  declare coveredAmountFils?: number | null;
+  declare uncoveredAmountFils?: number | null;
   declare staffId?: number | null;
   declare roomId?: number | null;
   declare appointmentId?: number | null;
@@ -39,7 +40,8 @@ OrderItem.init(
 
     referenceId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true },
     description: { type: DataTypes.STRING(256), allowNull: true },
-
+    coveredAmountFils: { type: DataTypes.INTEGER, allowNull: true },
+    uncoveredAmountFils: { type: DataTypes.INTEGER, allowNull: true },
     quantity: { type: DataTypes.INTEGER, defaultValue: 1 },
     unitPriceFils: { type: DataTypes.INTEGER, allowNull: false },
     totalPriceFils: { type: DataTypes.INTEGER, allowNull: false },

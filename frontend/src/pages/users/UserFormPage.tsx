@@ -137,6 +137,7 @@ const UserFormPage: React.FC = () => {
       <div className="min-h-screen p-4 my-4 bg-background text-foreground" dir={dir}>
         <div className="mx-auto max-w-6xl space-y-6">
           <button
+            type="button"
             onClick={() => navigate("/system/users")}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors mb-2 group"
           >

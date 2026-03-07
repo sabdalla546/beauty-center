@@ -218,18 +218,10 @@ const AppointmentFormPage: React.FC = () => {
             {t("appointments.return_to_list") ||
               "Please return to the appointments list and select an appointment to edit."}
           </p>
-          <Button onClick={() => navigate("/appointments")}>
+          <Button type="button" onClick={() => navigate("/appointments")}>
             {t("appointments.back_to_list") || "Back to Appointments"}
           </Button>
         </Card>
-      </div>
-    );
-  }
-
-  if (createMutation.isPending || updateMutation.isPending) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <ClipLoader size={50} color="hsl(var(--primary))" />
       </div>
     );
   }
@@ -251,6 +243,7 @@ const AppointmentFormPage: React.FC = () => {
       <div className="min-h-screen p-4 my-4 bg-background text-foreground" dir={dir}>
         <div className="mx-auto max-w-6xl space-y-6">
           <button
+            type="button"
             onClick={() => navigate("/appointments")}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors mb-2 group"
           >

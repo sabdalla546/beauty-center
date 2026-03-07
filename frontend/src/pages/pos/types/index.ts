@@ -94,15 +94,32 @@ export interface PosPayResponse {
     alreadyPaid?: boolean;
     paidFils?: number;
     remainingFils?: number;
+    packageCoveredFils?: number;
     invoice80?: {
       orderId: number;
+      orderNumber?: string;
       status: string;
       createdAt?: string | null;
       externalRef?: string | null;
-      customerName?: string | null;
+      customer?: string | null;
+      subtotalFils?: number;
+      discountFils?: number;
+      taxFils?: number;
+      totalFils?: number;
+      paidFils?: number;
+      refundedFils?: number;
+      netPaidFils?: number;
+      remainingFils?: number;
+      subtotalKwd?: number;
+      discountKwd?: number;
+      taxKwd?: number;
+      totalKwd?: number;
+      paidKwd?: number;
+      refundedKwd?: number;
+      netPaidKwd?: number;
+      remainingKwd?: number;
       items?: Array<{
-        id: number;
-        type: PosLineType;
+        lineType: PosLineType;
         description: string;
         quantity: number;
         unitPriceFils: number;
@@ -111,36 +128,12 @@ export interface PosPayResponse {
         totalPriceKwd: number;
       }>;
       payments?: Array<{
-        id: number;
         amountFils: number;
         amountKwd: number;
-        methodCode: string;
-        methodNameAr: string | null;
-        methodNameEn: string | null;
-        providerReference: string | null;
-        status: string;
-        createdAt: string | null;
+        methodName: string;
+        createdAt?: string | null;
       }>;
-      totals?: {
-        subtotalFils: number;
-        discountFils: number;
-        taxFils: number;
-        totalFils: number;
-        paidFils: number;
-        refundedFils: number;
-        netPaidFils: number;
-        remainingFils: number;
-        subtotalKwd: number;
-        discountKwd: number;
-        taxKwd: number;
-        totalKwd: number;
-        paidKwd: number;
-        refundedKwd: number;
-        netPaidKwd: number;
-        remainingKwd: number;
-      };
-      generatedAt: string;
     };
-    invoice80Html?: string;
+    invoice80Html?: string | null;
   };
 }

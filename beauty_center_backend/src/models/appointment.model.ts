@@ -1,6 +1,6 @@
 // src/models/Appointment.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 export class Appointment extends Model {
   declare id: number;

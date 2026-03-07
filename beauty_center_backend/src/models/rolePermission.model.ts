@@ -1,6 +1,6 @@
 // src/models/RolePermission.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 export class RolePermission extends Model {}
 RolePermission.init(
@@ -16,5 +16,5 @@ RolePermission.init(
       primaryKey: true,
     },
   },
-  { sequelize, tableName: "role_permissions", timestamps: false }
+  { sequelize, tableName: "role_permissions", timestamps: false },
 );

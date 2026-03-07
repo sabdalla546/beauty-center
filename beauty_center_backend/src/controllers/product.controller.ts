@@ -6,7 +6,7 @@ import fs from "fs/promises";
 
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../errors/AppError";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 import {
   createProductSchema,
@@ -151,7 +151,19 @@ export const updateProduct = asyncHandler(
   async (req: Request, res: Response) => {
     const id = Number(req.params.id);
 
-    const parsed = updateProductSchema.safeParse(req.body);
+    const body = {
+      ...req.body,
+      costKwd:
+        req.body.costKwd !== undefined ? Number(req.body.costKwd) : undefined,
+      priceKwd:
+        req.body.priceKwd !== undefined ? Number(req.body.priceKwd) : undefined,
+      currentQty:
+        req.body.currentQty !== undefined
+          ? Number(req.body.currentQty)
+          : undefined,
+    };
+
+    const parsed = updateProductSchema.safeParse(body);
     if (!parsed.success) {
       if (req.file?.filename) {
         await safeUnlink(path.join(productUploadDir, req.file.filename));

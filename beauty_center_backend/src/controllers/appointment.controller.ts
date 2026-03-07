@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { Op } from "sequelize";
 import { AppError } from "../errors/AppError";
 import { asyncHandler } from "../middlewares/asyncHandler";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 import {
   createAppointmentSchema,

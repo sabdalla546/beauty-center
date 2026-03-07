@@ -1,6 +1,6 @@
 // src/models/UserRole.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 export class UserRole extends Model {}
 UserRole.init(
@@ -16,5 +16,5 @@ UserRole.init(
       primaryKey: true,
     },
   },
-  { sequelize, tableName: "user_roles", timestamps: false }
+  { sequelize, tableName: "user_roles", timestamps: false },
 );

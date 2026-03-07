@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
@@ -87,12 +86,6 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    if (!isOpen && !hoverOpen) {
-      setExpandedItems({});
-    }
-  }, [isOpen, hoverOpen]);
-
   const navItems: NavItem[] = [
     {
       id: "dashboard",
@@ -172,6 +165,15 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
     },
 
     {
+      id: "reports",
+      labelKey: "sidebar.reports",
+      label: "Reports",
+      path: "/reports",
+      icon: FaChartPie,
+      // permission: "reports.read",
+    },
+
+    {
       id: "inventory",
       labelKey: "sidebar.inventory",
       label: "Inventory",
@@ -247,17 +249,25 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
       id: "rooms",
       labelKey: "sidebar.rooms",
       label: "Rooms",
-      path: "/rooms",
       icon: FaListAlt,
-      // permission: "rooms.read",
-    },
-    {
-      id: "room-types",
-      labelKey: "rooms.room_types",
-      label: "Room types",
-      path: "/rooms/types",
-      icon: FaListAlt,
-      // permission: "room_types.read",
+      children: [
+        {
+          id: "rooms-list",
+          labelKey: "sidebar.rooms_list",
+          label: "Rooms",
+          path: "/rooms",
+          icon: FaListAlt,
+          // permission: "rooms.read",
+        },
+        {
+          id: "room-types",
+          labelKey: "rooms.room_types",
+          label: "Room types",
+          path: "/rooms/types",
+          icon: FaListAlt,
+          // permission: "room_types.read",
+        },
+      ],
     },
 
     {
@@ -387,10 +397,12 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
 
               {/* Label */}
               <div
-                className={`
-                  flex-grow overflow-hidden transition-all duration-300 ease-in-out
-                  ${showFull ? "w-auto opacity-100 ml-3" : "w-0 opacity-0 ml-0"}
-                `}
+                className={[
+                  "flex-grow overflow-hidden transition-all duration-300 ease-in-out",
+                  showFull
+                    ? `${isRTL ? "mr-3" : "ml-3"} max-w-[180px] opacity-100 translate-x-0`
+                    : "ml-0 mr-0 max-w-0 opacity-0 translate-x-1",
+                ].join(" ")}
               >
                 <span
                   className={`${textSize} font-medium block truncate`}
@@ -485,7 +497,7 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
         "h-full min-h-0 flex flex-col z-50 custom-scrollbar",
         "bg-card text-foreground border-border",
         "transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]", // smooth width animation
-        isOpen ? "w-60" : "w-[70px]", // Standardized: w-60 (open), w-[59px] (closed)
+        isOpen ? "w-60" : "w-[4.6rem]",
         hoverOpen && !isOpen ? "!w-60" : "", // Hover expands to full width `w-60`
         isRTL ? "right-0 border-l" : "left-0 border-r",
         className || "",
@@ -501,16 +513,22 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
           alt="logo"
           className="h-10 w-10 rounded-xl object-contain bg-foreground/5 p-1"
         />
-        {showFull && (
-          <div className={`min-w-0 ${isRTL ? "mr-3" : "ml-3"}`}>
-            <div className="text-sm font-semibold truncate">
-              {t("Beauty Center") || "Beauty"}
-            </div>
-            <div className="text-[11px] text-muted-foreground truncate">
-              {"Beauty Center"}
-            </div>
+        <div
+          className={[
+            "min-w-0 overflow-hidden transition-all duration-300 ease-in-out",
+            isRTL ? "mr-3" : "ml-3",
+            showFull
+              ? "max-w-[160px] opacity-100 translate-x-0"
+              : "max-w-0 opacity-0 translate-x-1",
+          ].join(" ")}
+        >
+          <div className="text-sm font-semibold truncate">
+            {t("Beauty Center") || "Beauty"}
           </div>
-        )}
+          <div className="text-[11px] text-muted-foreground truncate">
+            {"Beauty Center"}
+          </div>
+        </div>
       </div>
 
       {/* Nav */}

@@ -1,6 +1,6 @@
 // src/models/Product.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 export class Product extends Model {
   declare id: number;

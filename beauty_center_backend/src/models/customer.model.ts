@@ -6,7 +6,7 @@ import {
   InferCreationAttributes,
   Model,
 } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 export class Customer extends Model<
   InferAttributes<Customer>,
@@ -81,7 +81,7 @@ Customer.init(
       { name: "idx_customers_updated_by", fields: ["updated_by"] },
       { name: "idx_customers_deleted_by", fields: ["deleted_by"] },
     ],
-  }
+  },
 );
 
 /**

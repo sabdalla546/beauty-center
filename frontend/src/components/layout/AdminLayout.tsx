@@ -32,7 +32,9 @@ const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({
     if (sidebarOpen) {
       return isRTL ? "md:right-60 md:left-0" : "md:left-60 md:right-0";
     }
-    return isRTL ? "md:right-[62px] md:left-0" : "md:left-[62px] md:right-0";
+    return isRTL
+      ? "md:right-[4.6rem] md:left-0"
+      : "md:left-[4.6rem] md:right-0";
   }, [sidebarOpen, isRTL]);
 
   // ✅ Main content margin (same logic you already had)
@@ -41,8 +43,8 @@ const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({
       ? "md:mr-60"
       : "md:ml-60"
     : isRTL
-      ? "md:mr-[62px]"
-      : "md:ml-[62px]";
+      ? "md:mr-[4.6rem]"
+      : "md:ml-[4.6rem]";
 
   return (
     <div
@@ -66,8 +68,8 @@ const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({
         className={`hidden md:block fixed ${
           isRTL ? "right-0" : "left-0"
         } top-0 h-full z-40
-          ${sidebarOpen ? "w-60" : "w-[62px]"}
-          transition-[width] duration-300`}
+          ${sidebarOpen ? "w-60" : "w-[4.6rem]"}
+          transition-[width] duration-300 ease-[cubic-bezier(0.2,0,0,1)]`}
       >
         <Sidebar isOpen={sidebarOpen} />
       </div>
@@ -96,13 +98,15 @@ const AdminLayout: React.FC<{ children?: React.ReactNode }> = ({
       </div>
 
       {/* ✅ Fixed Header */}
-      <div className={`fixed top-0 left-0 right-0 ${headerOffsetClass} z-50`}>
+      <div
+        className={`fixed top-0 left-0 right-0 ${headerOffsetClass} z-50 transition-[left,right] duration-300 ease-[cubic-bezier(0.2,0,0,1)]`}
+      >
         <Header onToggleSidebar={toggleSidebar} />
       </div>
 
       {/* ✅ Main Content (pt-14 to avoid going under fixed header) */}
       <div
-        className={`min-h-screen transition-all duration-300 ${contentOffsetClass} pt-14`}
+        className={`min-h-screen transition-[margin] duration-300 ease-[cubic-bezier(0.2,0,0,1)] ${contentOffsetClass} pt-14`}
       >
         <main className="p-3 sm:p-4">{children || <Outlet />}</main>
       </div>

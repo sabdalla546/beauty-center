@@ -1,5 +1,5 @@
 // src/models/index.ts
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 import { Appointment } from "./appointment.model";
 import { Customer } from "./customer.model";

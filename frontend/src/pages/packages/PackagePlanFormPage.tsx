@@ -140,18 +140,10 @@ const PackagePlanFormPage: React.FC = () => {
             {t("packages.return_to_list") ||
               "Please return to the plans list and select a plan to edit."}
           </p>
-          <Button onClick={() => navigate("/packages/plans")}>
+          <Button type="button" onClick={() => navigate("/packages/plans")}>
             {t("packages.back_to_plans") || "Back to Plans"}
           </Button>
         </Card>
-      </div>
-    );
-  }
-
-  if (createMutation.isPending || updateMutation.isPending) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <ClipLoader size={50} color="hsl(var(--primary))" />
       </div>
     );
   }
@@ -163,6 +155,7 @@ const PackagePlanFormPage: React.FC = () => {
       <div className="min-h-screen p-4 my-4 bg-background text-foreground" dir={dir}>
         <div className="mx-auto max-w-6xl space-y-6">
           <button
+            type="button"
             onClick={() => navigate("/packages/plans")}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors mb-2 group"
           >

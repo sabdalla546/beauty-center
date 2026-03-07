@@ -5,7 +5,7 @@ import {
   InferCreationAttributes,
   CreationOptional,
 } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 export type CustomerPackageStatus =
   | "active"
@@ -20,7 +20,8 @@ export class CustomerPackage extends Model<
   declare id: CreationOptional<number>;
   declare customerId: number;
   declare planId: number;
-
+  declare totalValueFils: number;
+  declare usedValueFils: CreationOptional<number>;
   declare startAt: Date;
   declare expiresAt: Date;
   declare status: CreationOptional<CustomerPackageStatus>;
@@ -52,7 +53,16 @@ CustomerPackage.init(
       allowNull: false,
       defaultValue: "active",
     },
-
+    totalValueFils: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    usedValueFils: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
     totalSessions: { type: DataTypes.INTEGER, allowNull: false },
     usedSessions: {
       type: DataTypes.INTEGER,

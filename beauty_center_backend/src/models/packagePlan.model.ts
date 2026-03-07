@@ -5,7 +5,7 @@ import {
   InferCreationAttributes,
   CreationOptional,
 } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 export class PackagePlan extends Model<
   InferAttributes<PackagePlan>,

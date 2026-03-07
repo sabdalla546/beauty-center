@@ -4,7 +4,7 @@ import { Op } from "sequelize";
 import { Role } from "../models/role.model";
 import { Permission } from "../models/permission.model";
 import { User } from "../models/user.model";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 import {
   invalidateAllCaches,
   invalidateUserCache,

@@ -1,6 +1,6 @@
 // src/models/RoomType.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 export class RoomType extends Model {
   declare id: number;
@@ -17,5 +17,5 @@ RoomType.init(
     name: { type: DataTypes.STRING(128), allowNull: false },
     requiresPrivate: { type: DataTypes.BOOLEAN, defaultValue: false },
   },
-  { sequelize, tableName: "room_types", timestamps: false }
+  { sequelize, tableName: "room_types", timestamps: false },
 );

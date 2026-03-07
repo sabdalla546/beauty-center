@@ -92,6 +92,7 @@ export const useUpdateProduct = (id?: string) => {
       navigate("/inventory/products");
     },
     onError: (error: any) => {
+      console.log(error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -109,7 +110,12 @@ export const useAdjustProductStock = () => {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: (payload: { id: number; change: number; reason: string; referenceId?: string }) =>
+    mutationFn: (payload: {
+      id: number;
+      change: number;
+      reason: string;
+      referenceId?: string;
+    }) =>
       api.post(`/products/${payload.id}/adjust-stock`, {
         change: payload.change,
         reason: payload.reason,

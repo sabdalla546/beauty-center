@@ -1,6 +1,6 @@
 // src/models/Role.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 export class Role extends Model {
   declare id: number;
@@ -17,5 +17,5 @@ Role.init(
     name: { type: DataTypes.STRING(64), allowNull: false, unique: true },
     description: { type: DataTypes.STRING(255), allowNull: true },
   },
-  { sequelize, tableName: "roles", timestamps: true }
+  { sequelize, tableName: "roles", timestamps: true },
 );

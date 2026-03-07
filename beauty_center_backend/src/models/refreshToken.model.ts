@@ -1,6 +1,6 @@
 // src/models/RefreshToken.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 export class RefreshToken extends Model {
   declare id: number;
@@ -29,7 +29,7 @@ RefreshToken.init(
     revokedAt: { type: DataTypes.DATE, allowNull: true },
     expiresAt: { type: DataTypes.DATE, allowNull: false },
   },
-  { sequelize, tableName: "refresh_tokens", timestamps: true }
+  { sequelize, tableName: "refresh_tokens", timestamps: true },
 );
 
 // indexes for quick lookup

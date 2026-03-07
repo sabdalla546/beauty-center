@@ -94,7 +94,7 @@ const RoomTypeFormPage: React.FC = () => {
             {t("rooms.return_to_room_types") ||
               "Please return to the room types list and select a room type to edit."}
           </p>
-          <Button onClick={() => navigate("/rooms/types")}>
+          <Button type="button" onClick={() => navigate("/rooms/types")}>
             {t("rooms.back_to_room_types") || "Back to Room Types"}
           </Button>
         </Card>
@@ -117,6 +117,7 @@ const RoomTypeFormPage: React.FC = () => {
       <div className="min-h-screen p-4 my-4 bg-background text-foreground" dir={dir}>
         <div className="mx-auto max-w-6xl space-y-6">
           <button
+            type="button"
             onClick={() => navigate("/rooms/types")}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors mb-2 group"
           >

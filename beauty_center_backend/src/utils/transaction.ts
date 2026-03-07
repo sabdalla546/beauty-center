@@ -1,6 +1,6 @@
 // src/utils/transaction.ts
 import { Transaction } from "sequelize";
-import { sequelize } from "../db";
+import { sequelize } from "../db/db";
 
 /**
  * Run function inside a managed transaction.
@@ -13,7 +13,7 @@ import { sequelize } from "../db";
  *   });
  */
 export async function withTransaction<T>(
-  fn: (t: Transaction) => Promise<T>
+  fn: (t: Transaction) => Promise<T>,
 ): Promise<T> {
   const t = await sequelize.transaction();
   try {

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
@@ -153,9 +154,7 @@ const ProductFormPage: React.FC = () => {
     else createMutation.mutate(payload);
   };
 
-  const isBusy =
-    createMutation.isPending ||
-    updateMutation.isPending;
+  const isBusy = createMutation.isPending || updateMutation.isPending;
   const dir = i18n.dir();
   const imageSrc = imagePreview ?? existingImageUrl;
 
@@ -170,18 +169,10 @@ const ProductFormPage: React.FC = () => {
             {t("products.return_to_list") ||
               "Please return to the products list and select a product to edit."}
           </p>
-          <Button onClick={() => navigate("/inventory/products")}>
+          <Button type="button" onClick={() => navigate("/inventory/products")}>
             {t("products.back_to_products") || "Back to Products"}
           </Button>
         </Card>
-      </div>
-    );
-  }
-
-  if (createMutation.isPending || updateMutation.isPending) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <ClipLoader size={50} color="hsl(var(--primary))" />
       </div>
     );
   }
@@ -190,9 +181,13 @@ const ProductFormPage: React.FC = () => {
     <ProtectedComponent
       permission={isEditMode ? "products.update" : "products.create"}
     >
-      <div className="min-h-screen p-4 my-4 bg-background text-foreground" dir={dir}>
+      <div
+        className="min-h-screen p-4 my-4 bg-background text-foreground"
+        dir={dir}
+      >
         <div className="mx-auto max-w-6xl space-y-6">
           <button
+            type="button"
             onClick={() => navigate("/inventory/products")}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors mb-2 group"
           >
@@ -243,7 +238,10 @@ const ProductFormPage: React.FC = () => {
           <Card className="bg-card border-border rounded-xl shadow-sm overflow-hidden">
             <div className="p-8">
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="space-y-6"
+                >
                   <div className="space-y-6">
                     <div className="flex items-center gap-3 pb-4 border-b border-border">
                       <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold">
@@ -350,7 +348,9 @@ const ProductFormPage: React.FC = () => {
                           <div className="flex items-center gap-3">
                             <img
                               src={imageSrc}
-                              alt={product?.name || t("products.image") || "Image"}
+                              alt={
+                                product?.name || t("products.image") || "Image"
+                              }
                               className="h-16 w-16 rounded-lg object-cover border border-border"
                               loading="lazy"
                             />
@@ -409,7 +409,12 @@ const ProductFormPage: React.FC = () => {
                               {t("products.cost_kwd") || "Cost (KWD)"}
                             </FormLabel>
                             <FormControl>
-                              <Input type="number" min={0} step={0.001} {...field} />
+                              <Input
+                                type="number"
+                                min={0}
+                                step={0.001}
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -424,7 +429,12 @@ const ProductFormPage: React.FC = () => {
                               {t("products.price_kwd") || "Price (KWD)"}
                             </FormLabel>
                             <FormControl>
-                              <Input type="number" min={0} step={0.001} {...field} />
+                              <Input
+                                type="number"
+                                min={0}
+                                step={0.001}
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -482,7 +492,9 @@ const ProductFormPage: React.FC = () => {
                             size={16}
                             color="hsl(var(--primary-foreground))"
                           />
-                          {t("products.processing") || t("processing") || "Processing"}
+                          {t("products.processing") ||
+                            t("processing") ||
+                            "Processing"}
                         </span>
                       ) : (
                         <span className="flex items-center gap-2">
