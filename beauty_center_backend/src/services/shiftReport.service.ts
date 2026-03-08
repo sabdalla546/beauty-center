@@ -40,9 +40,10 @@ export const buildSalesAndCommissionReport = async (args: ReportArgs) => {
   const payments = await Payment.findAll({
     where: paymentsWhere,
     include: [
-      { model: PaymentMethod },
+      { model: PaymentMethod, as: "method" },
       {
         model: Order,
+        as: "order",
         required: true,
         attributes: ["id", "createdBy"],
         ...cashierFilter(args.cashierId),
@@ -65,7 +66,7 @@ export const buildSalesAndCommissionReport = async (args: ReportArgs) => {
   > = {};
 
   for (const p of payments as any[]) {
-    const m = p.PaymentMethod;
+    const m = p.method;
     if (!m) continue;
 
     if (!byMethod[m.id]) {
@@ -103,11 +104,12 @@ export const buildSalesAndCommissionReport = async (args: ReportArgs) => {
     include: [
       {
         model: Order,
+        as: "order",
         required: true,
         where: orderWhere,
       },
-      { model: Staff },
-      { model: Service },
+      { model: Staff, as: "staff", required: false },
+      { model: Service, as: "service", required: false },
     ],
   });
 
@@ -121,8 +123,8 @@ export const buildSalesAndCommissionReport = async (args: ReportArgs) => {
   for (const it of items as any[]) {
     if (it.lineType !== "service" || !it.staffId) continue;
 
-    const staff = it.Staff;
-    const service = it.Service;
+    const staff = it.staff;
+    const service = it.service;
 
     const percent = (service?.commissionPercent ??
       staff?.commissionPercent ??
@@ -165,6 +167,7 @@ export const buildSalesAndCommissionReport = async (args: ReportArgs) => {
           include: [
             {
               model: Order,
+              as: "order",
               required: true,
               attributes: [],
               where: { shiftSessionId: args.shiftSessionId },

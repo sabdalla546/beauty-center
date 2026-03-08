@@ -12,6 +12,9 @@ import { filsToKwd } from "../utils/money";
 export type ReportGroupBy = "day" | "month" | "year";
 
 type DateInput = string | null | undefined;
+type DateBoundary = "start" | "end";
+
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const n = (value: unknown) => {
   const num = Number(value ?? 0);
@@ -20,15 +23,34 @@ const n = (value: unknown) => {
 
 const kwd = (value: unknown) => filsToKwd(n(value));
 
-const asDate = (value?: DateInput) => {
+const asDate = (value?: DateInput, boundary: DateBoundary = "start") => {
   if (!value) return null;
+
+  if (typeof value === "string" && DATE_ONLY_RE.test(value)) {
+    const [year, month, day] = value.split("-").map(Number);
+    const date =
+      boundary === "end"
+        ? new Date(year, month - 1, day, 23, 59, 59, 999)
+        : new Date(year, month - 1, day, 0, 0, 0, 0);
+
+    if (
+      date.getFullYear() !== year ||
+      date.getMonth() !== month - 1 ||
+      date.getDate() !== day
+    ) {
+      return null;
+    }
+
+    return date;
+  }
+
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
 const range = (column: string, from?: DateInput, to?: DateInput) => {
-  const fromDate = asDate(from);
-  const toDate = asDate(to);
+  const fromDate = asDate(from, "start");
+  const toDate = asDate(to, "end");
   if (!fromDate && !toDate) return undefined;
 
   const where: Record<symbol, Date> = {} as Record<symbol, Date>;
@@ -38,9 +60,9 @@ const range = (column: string, from?: DateInput, to?: DateInput) => {
 };
 const groupPeriod = (value: Date | string, groupBy: ReportGroupBy) => {
   const date = value instanceof Date ? value : new Date(value);
-  const y = date.getUTCFullYear();
-  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(date.getUTCDate()).padStart(2, "0");
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
   if (groupBy === "year") return String(y);
   if (groupBy === "month") return String(y) + "-" + m;
   return String(y) + "-" + m + "-" + d;

@@ -24,7 +24,6 @@ import {
   FaListAlt,
   FaMoneyCheckAlt,
   FaHistory,
-  FaExchangeAlt,
   FaFileInvoiceDollar,
   FaHourglassHalf,
   FaBoxOpen,
@@ -138,20 +137,12 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
       // anyOf: ["shifts.open", "shifts.close", "shifts.read"],
       children: [
         {
-          id: "shift-open",
-          labelKey: "sidebar.open_shift",
-          label: "Open Shift",
-          path: "/shifts/open",
+          id: "shift-center",
+          labelKey: "sidebar.shift_center",
+          label: "Shift Center",
+          path: "/shifts",
           icon: FaMoneyCheckAlt,
-          // permission: "shifts.open",
-        },
-        {
-          id: "shift-close",
-          labelKey: "sidebar.close_shift",
-          label: "Close Shift",
-          path: "/shifts/close",
-          icon: FaExchangeAlt,
-          //  permission: "shifts.close",
+          // anyOf: ["shifts.open", "shifts.close"],
         },
         {
           id: "shift-summary",
@@ -309,8 +300,7 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
     setExpandedItems((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const isActive = (path?: string) =>
-    path ? location.pathname === path : false;
+  const isActive = (path?: string) => (path ? location.pathname === path : false);
 
   const hasActiveChild = (item: NavItem): boolean =>
     item.children?.some((child) =>
@@ -346,10 +336,10 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
             isRTL ? "flex-row-reverse" : "flex-row",
           ].join(" ")}
         >
-          <div className="flex items-center justify-between w-full">
+          <div className="flex w-full items-center justify-between">
             <NavLink
               to={item.path || "#"}
-              className={`flex items-center flex-grow min-w-0 ${
+              className={`flex min-w-0 flex-grow items-center ${
                 !showFull ? "justify-center" : ""
               }`}
               onClick={(e) => {
@@ -364,9 +354,8 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
               }}
               title={!showFull ? label : ""}
             >
-              {/* Icon box */}
               <div
-                className={`flex items-center flex-shrink-0 ${
+                className={`flex flex-shrink-0 items-center ${
                   showFull ? "w-[44px]" : "w-full"
                 }`}
               >
@@ -395,7 +384,6 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
                 </motion.div>
               </div>
 
-              {/* Label */}
               <div
                 className={[
                   "flex-grow overflow-hidden transition-all duration-300 ease-in-out",
@@ -405,7 +393,7 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
                 ].join(" ")}
               >
                 <span
-                  className={`${textSize} font-medium block truncate`}
+                  className={`${textSize} block truncate font-medium`}
                   dir="auto"
                 >
                   {label}
@@ -413,7 +401,6 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
               </div>
             </NavLink>
 
-            {/* Chevron */}
             {hasChildren && showFull && (
               <button
                 onClick={(e) => {
@@ -422,8 +409,7 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
                   toggleItem(item.id);
                 }}
                 className={[
-                  "flex-shrink-0 grid place-items-center",
-                  "h-8 w-8 rounded-lg",
+                  "grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg",
                   "hover:bg-foreground/5",
                   active
                     ? "text-primary-foreground/90"
@@ -444,7 +430,6 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
           </div>
         </div>
 
-        {/* Children */}
         <AnimatePresence initial={false}>
           {hasChildren && isExpanded && showFull && (
             <motion.div
@@ -457,7 +442,6 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
                 " ",
               )}
             >
-              {/* Rail */}
               <div
                 className={`absolute top-0 bottom-0 ${
                   isRTL ? "right-3" : "left-3"
@@ -488,17 +472,15 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
     return content;
   };
 
-  // const initials = ... (unused in this simplified version if we don't show user mini, but let's keep it if needed later or just omit if unused in the visible part)
-
   return (
     <div
       ref={sidebarRef}
       className={[
-        "h-full min-h-0 flex flex-col z-50 custom-scrollbar",
-        "bg-card text-foreground border-border",
-        "transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]", // smooth width animation
+        "custom-scrollbar z-50 flex h-full min-h-0 flex-col",
+        "border-border bg-card text-foreground",
+        "transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
         isOpen ? "w-60" : "w-[4.6rem]",
-        hoverOpen && !isOpen ? "!w-60" : "", // Hover expands to full width `w-60`
+        hoverOpen && !isOpen ? "!w-60" : "",
         isRTL ? "right-0 border-l" : "left-0 border-r",
         className || "",
       ].join(" ")}
@@ -506,12 +488,11 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
       onMouseEnter={() => !isOpen && setHoverOpen(true)}
       onMouseLeave={() => !isOpen && setHoverOpen(false)}
     >
-      {/* Logo */}
-      <div className="border-b border-border flex items-center h-14 w-full bg-card px-3">
+      <div className="flex h-14 w-full items-center border-b border-border bg-card px-3">
         <img
           src="/images/beautyLogo.webp"
           alt="logo"
-          className="h-10 w-10 rounded-xl object-contain bg-foreground/5 p-1"
+          className="h-10 w-10 rounded-xl bg-foreground/5 object-contain p-1"
         />
         <div
           className={[
@@ -522,37 +503,20 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
               : "max-w-0 opacity-0 translate-x-1",
           ].join(" ")}
         >
-          <div className="text-sm font-semibold truncate">
+          <div className="truncate text-sm font-semibold">
             {t("Beauty Center") || "Beauty"}
           </div>
-          <div className="text-[11px] text-muted-foreground truncate">
+          <div className="truncate text-[11px] text-muted-foreground">
             {"Beauty Center"}
           </div>
         </div>
       </div>
 
-      {/* Nav */}
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+      <div className="custom-scrollbar flex-1 min-h-0 overflow-y-auto">
         <nav className="p-2 text-[12px]">
           {navItems.map((i) => renderNavItem(i))}
         </nav>
       </div>
-
-      {/* <div className="px-3 py-2 border-t border-border dark:border-[var(--color-border-subtle)] bg-card dark:bg-[var(--color-bg-elevated)]">
-        <button
-          onClick={logout}
-          className={[
-            "flex items-center w-full px-2 py-2 rounded-xl",
-            "text-foreground hover:bg-muted",
-            "dark:text-[var(--color-text-main)] dark:hover:bg-[var(--color-bg-subtle)]",
-            showFull ? "justify-start gap-2" : "justify-center",
-          ].join(" ")}
-          title={!showFull ? t("auth.logout") : ""}
-        >
-          <FiLogOut className="text-lg flex-shrink-0 text-muted-foreground dark:text-[var(--color-text-muted)]" />
-          {showFull && <span className="truncate">{t("auth.logout")}</span>}
-        </button>
-      </div> */}
     </div>
   );
 };

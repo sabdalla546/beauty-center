@@ -166,7 +166,9 @@ export const useAppointmentsColumns = ({
     },
     {
       id: "actions",
-      header: () => <div className="text-center">{t("actions") || "Actions"}</div>,
+      header: () => (
+        <div className="text-center">{t("actions") || "Actions"}</div>
+      ),
       cell: ({ row }) => {
         const canCheckout = checkoutAllowedStatuses.has(
           String(row.original.status || ""),

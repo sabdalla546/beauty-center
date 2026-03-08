@@ -108,14 +108,15 @@ export const getShiftSummary = asyncHandler(
       include: [
         {
           model: Order,
+          as: "order",
           required: true,
           where: {
             shiftSessionId: shiftId,
             status: "paid",
           },
         },
-        { model: Staff },
-        { model: Service },
+        { model: Staff, as: "staff", required: false },
+        { model: Service, as: "service", required: false },
       ],
     });
 
@@ -139,8 +140,8 @@ export const getShiftSummary = asyncHandler(
     for (const it of orderItems as any[]) {
       if (it.lineType !== "service" || !it.staffId) continue;
 
-      const staff = it.Staff;
-      const service = it.Service;
+      const staff = it.staff;
+      const service = it.service;
 
       const percent = (service?.commissionPercent ??
         staff?.commissionPercent ??
@@ -187,6 +188,7 @@ export const getShiftSummary = asyncHandler(
           include: [
             {
               model: Order,
+              as: "order",
               required: true,
               attributes: [],
               where: { shiftSessionId: shiftId },

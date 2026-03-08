@@ -76,6 +76,8 @@ Order.belongsTo(Customer, { foreignKey: "customerId", as: "customer" });
 
 Order.hasMany(OrderItem, { foreignKey: "orderId", as: "items" });
 OrderItem.belongsTo(Order, { foreignKey: "orderId", as: "order" });
+Staff.hasMany(OrderItem, { foreignKey: "staffId", as: "orderItems" });
+OrderItem.belongsTo(Staff, { foreignKey: "staffId", as: "staff" });
 
 Order.hasMany(Payment, { foreignKey: "orderId", as: "payments" });
 //Order.hasMany(Payment, { foreignKey: "orderId" });

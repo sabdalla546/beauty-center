@@ -2,7 +2,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext.tsx";
 import Login from "@/pages/Login";
-import Dashboard from "@/pages/Dashboard";
+import Dashboard from "@/pages/dashboard/Dashboard.tsx";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -28,8 +28,7 @@ import RoomsPage from "./pages/rooms/RoomsPage";
 import RoomFormPage from "./pages/rooms/RoomFormPage";
 import RoomTypesPage from "./pages/rooms/RoomTypesPage";
 import RoomTypeFormPage from "./pages/rooms/RoomTypeFormPage";
-import OpenShiftPage from "./pages/shifts/OpenShiftPage";
-import CloseShiftPage from "./pages/shifts/CloseShiftPage";
+import ShiftPage from "./pages/shifts/ShiftPage";
 import ShiftSummaryPage from "./pages/shifts/ShiftSummaryPage";
 import PosPage from "./pages/pos/PosPage.tsx";
 import OrdersHistoryPage from "./pages/pos/OrdersHistoryPage.tsx";
@@ -82,8 +81,14 @@ const AppRouter = () => (
             <Route path="pos" element={<PosPage />} />
             <Route path="pos/history" element={<OrdersHistoryPage />} />
             <Route path="appointments" element={<AppointmentsPage />} />
-            <Route path="appointments/create" element={<AppointmentFormPage />} />
-            <Route path="appointments/edit/:id" element={<AppointmentFormPage />} />
+            <Route
+              path="appointments/create"
+              element={<AppointmentFormPage />}
+            />
+            <Route
+              path="appointments/edit/:id"
+              element={<AppointmentFormPage />}
+            />
             <Route
               path="appointments/checkout/:id"
               element={<AppointmentCheckoutPage />}
@@ -99,7 +104,10 @@ const AppRouter = () => (
             <Route path="system/roles/edit/:id" element={<RoleFormPage />} />
 
             {/* Payment Methods */}
-            <Route path="system/payment-methods" element={<PaymentMethodsPage />} />
+            <Route
+              path="system/payment-methods"
+              element={<PaymentMethodsPage />}
+            />
             <Route
               path="system/payment-methods/create"
               element={<PaymentMethodFormPage />}
@@ -137,9 +145,18 @@ const AppRouter = () => (
 
             {/* Packages */}
             <Route path="packages/plans" element={<PackagePlansPage />} />
-            <Route path="packages/plans/create" element={<PackagePlanFormPage />} />
-            <Route path="packages/plans/edit/:id" element={<PackagePlanFormPage />} />
-            <Route path="packages/customers" element={<CustomerPackagesPage />} />
+            <Route
+              path="packages/plans/create"
+              element={<PackagePlanFormPage />}
+            />
+            <Route
+              path="packages/plans/edit/:id"
+              element={<PackagePlanFormPage />}
+            />
+            <Route
+              path="packages/customers"
+              element={<CustomerPackagesPage />}
+            />
             <Route path="packages/usages" element={<PackageUsagesPage />} />
 
             {/* Rooms CRUD */}
@@ -151,8 +168,15 @@ const AppRouter = () => (
             <Route path="rooms/types/edit/:id" element={<RoomTypeFormPage />} />
 
             {/* Shifts */}
-            <Route path="shifts/open" element={<OpenShiftPage />} />
-            <Route path="shifts/close" element={<CloseShiftPage />} />
+            <Route path="shifts" element={<ShiftPage />} />
+            <Route
+              path="shifts/open"
+              element={<Navigate to="/shifts" replace />}
+            />
+            <Route
+              path="shifts/close"
+              element={<Navigate to="/shifts" replace />}
+            />
             <Route path="shifts/summary" element={<ShiftSummaryPage />} />
             <Route path="reports" element={<ReportsPage />} />
           </Route>
