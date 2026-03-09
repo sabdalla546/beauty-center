@@ -38,6 +38,7 @@ import AppointmentCheckoutPage from "./pages/appointments/AppointmentCheckoutPag
 import PaymentMethodsPage from "./pages/paymentMethods/PaymentMethodsPage";
 import PaymentMethodFormPage from "./pages/paymentMethods/PaymentMethodFormPage";
 import ReportsPage from "./pages/reports/ReportsPage";
+import { JSX } from "react/jsx-runtime";
 //import UsersPage from "./pages/users/UsersPage";
 
 const queryClient = new QueryClient();

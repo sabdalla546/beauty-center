@@ -10,12 +10,14 @@ interface UseStaffParams {
   currentPage: number;
   itemsPerPage: number;
   searchQuery: string;
+  enabled?: boolean;
 }
 
 export const useStaff = ({
   currentPage,
   itemsPerPage,
   searchQuery,
+  enabled = true,
 }: UseStaffParams) => {
   return useQuery<StaffListResponse>({
     queryKey: ["staff", currentPage, itemsPerPage, searchQuery],
@@ -47,6 +49,7 @@ export const useStaff = ({
             },
           };
         }),
+    enabled,
   });
 };
 

@@ -30,11 +30,24 @@ export const appointmentFormSchema = z
     serviceId: requiredInt(1),
     staffId: optionalInt,
     roomId: optionalInt,
+    sourceType: z.string().max(32).optional(),
+    sourceId: optionalInt.nullable(),
+    customerPackageId: optionalInt.nullable(),
     startAt: z.string().min(1),
     endAt: optionalDateTime,
     status: z.string().max(32).optional(),
     notes: z.string().optional().nullable(),
+    internalNotes: z.string().optional().nullable(),
   })
+  .refine(
+    (data) =>
+      data.sourceType !== "package" ||
+      Number(data.customerPackageId || 0) > 0,
+    {
+      message: "Customer package is required when source type is package",
+      path: ["customerPackageId"],
+    },
+  )
   .refine(
     (data) => {
       if (!data.startAt || !data.endAt) return true;

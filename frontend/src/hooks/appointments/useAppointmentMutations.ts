@@ -9,25 +9,65 @@ export interface AppointmentFormValues {
   serviceId: number;
   staffId?: number | null;
   roomId?: number | null;
+  sourceType?: string | null;
+  sourceId?: number | null;
+  customerPackageId?: number | null;
   startAt: string;
   endAt?: string;
   status?: string;
   notes?: string | null;
+  internalNotes?: string | null;
 }
 
-const buildAppointmentPayload = (values: AppointmentFormValues) => {
+export interface AppointmentAssignmentValues {
+  actualStaffId?: number | null;
+  actualRoomId?: number | null;
+}
+
+export interface AppointmentCancelValues {
+  cancelReason: string;
+}
+
+export interface AppointmentRescheduleValues {
+  newStartAt: string;
+  newEndAt?: string;
+  staffId?: number | null;
+  roomId?: number | null;
+  reason?: string | null;
+  status?: "booked" | "confirmed";
+}
+
+const invalidateAppointmentQueries = (
+  queryClient: ReturnType<typeof useQueryClient>,
+) => {
+  queryClient.invalidateQueries({ queryKey: ["appointments-calendar"] });
+  queryClient.invalidateQueries({ queryKey: ["reports"] });
+};
+
+const buildAppointmentPayload = (
+  values: AppointmentFormValues,
+  options?: { includeStatus?: boolean },
+) => {
   const payload: Record<string, any> = {
     customerId: values.customerId,
     serviceId: values.serviceId,
     staffId: values.staffId ?? null,
     roomId: values.roomId ?? null,
+    sourceType: values.sourceType || "single_service",
+    sourceId: values.sourceId ?? null,
+    customerPackageId:
+      values.sourceType === "package" ? values.customerPackageId ?? null : null,
     startAt: values.startAt,
-    status: values.status || undefined,
     notes: values.notes ?? null,
+    internalNotes: values.internalNotes ?? null,
   };
 
   if (values.endAt) {
     payload.endAt = values.endAt;
+  }
+
+  if (options?.includeStatus && values.status) {
+    payload.status = values.status;
   }
 
   return payload;
@@ -40,13 +80,16 @@ export const useCreateAppointment = () => {
 
   return useMutation({
     mutationFn: (values: AppointmentFormValues) =>
-      api.post("/appointments", buildAppointmentPayload(values)),
+      api.post(
+        "/appointments",
+        buildAppointmentPayload(values, { includeStatus: true }),
+      ),
     onSuccess: () => {
       toast({
         title: "Success",
         description: "Appointment created successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["appointments-calendar"] });
+      invalidateAppointmentQueries(queryClient);
       navigate("/appointments");
     },
     onError: (error: any) => {
@@ -79,7 +122,7 @@ export const useUpdateAppointment = (id?: string) => {
         title: "Success",
         description: "Appointment updated successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["appointments-calendar"] });
+      invalidateAppointmentQueries(queryClient);
       navigate("/appointments");
     },
     onError: (error: any) => {
@@ -111,7 +154,7 @@ export const useUpdateAppointmentStatus = (id?: number) => {
         title: "Success",
         description: "Appointment status updated successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["appointments-calendar"] });
+      invalidateAppointmentQueries(queryClient);
     },
     onError: (error: any) => {
       toast({
@@ -125,3 +168,87 @@ export const useUpdateAppointmentStatus = (id?: number) => {
     },
   });
 };
+
+const useAppointmentWorkflowAction = <TInput,>(
+  id: number | string | undefined,
+  endpoint: string,
+  successMessage: string,
+) => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (values: TInput) => {
+      if (!id) {
+        throw new Error("Appointment id is required");
+      }
+      return api.post(`/appointments/${id}/${endpoint}`, values ?? {});
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: successMessage,
+      });
+      invalidateAppointmentQueries(queryClient);
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description:
+          error?.response?.data?.error?.message ||
+          error?.response?.data?.message ||
+          "Appointment action failed.",
+      });
+    },
+  });
+};
+
+export const useConfirmAppointment = (id?: number | string) =>
+  useAppointmentWorkflowAction<Record<string, never>>(
+    id,
+    "confirm",
+    "Appointment confirmed successfully",
+  );
+
+export const useCheckInAppointment = (id?: number | string) =>
+  useAppointmentWorkflowAction<Record<string, never>>(
+    id,
+    "check-in",
+    "Appointment checked in successfully",
+  );
+
+export const useStartAppointmentService = (id?: number | string) =>
+  useAppointmentWorkflowAction<AppointmentAssignmentValues>(
+    id,
+    "start",
+    "Service started successfully",
+  );
+
+export const useCompleteAppointment = (id?: number | string) =>
+  useAppointmentWorkflowAction<AppointmentAssignmentValues>(
+    id,
+    "complete",
+    "Appointment completed successfully",
+  );
+
+export const useCancelAppointment = (id?: number | string) =>
+  useAppointmentWorkflowAction<AppointmentCancelValues>(
+    id,
+    "cancel",
+    "Appointment cancelled successfully",
+  );
+
+export const useMarkAppointmentNoShow = (id?: number | string) =>
+  useAppointmentWorkflowAction<Record<string, never>>(
+    id,
+    "no-show",
+    "Appointment marked as no-show",
+  );
+
+export const useRescheduleAppointment = (id?: number | string) =>
+  useAppointmentWorkflowAction<AppointmentRescheduleValues>(
+    id,
+    "reschedule",
+    "Appointment rescheduled successfully",
+  );

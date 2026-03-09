@@ -56,6 +56,8 @@ const FIELD_LABELS_AR: Record<string, string> = {
   closing_cash_fils: "النقدية الختامية (فلس)",
   closing_cash_kwd: "النقدية الختامية (د.ك)",
   count: "العدد",
+  customer_name: "اسم العميل",
+  customer_phone: "هاتف العميل",
   current_qty: "الكمية الحالية",
   expected_cash_fils: "النقدية المتوقعة (فلس)",
   expected_cash_kwd: "النقدية المتوقعة (د.ك)",
@@ -101,6 +103,7 @@ const FIELD_LABELS_AR: Record<string, string> = {
   remaining_value_kwd: "القيمة المتبقية (د.ك)",
   room_id: "معرف الغرفة",
   room_name: "اسم الغرفة",
+  search: "البحث",
   service_id: "معرف الخدمة",
   service_name: "اسم الخدمة",
   sessions_used: "الجلسات المستخدمة",
@@ -118,6 +121,7 @@ const FIELD_LABELS_AR: Record<string, string> = {
   status: "الحالة",
   stock_in_qty: "الكمية الداخلة",
   stock_out_qty: "الكمية الخارجة",
+  start_at: "وقت البداية",
   sum_cash_fils: "مدفوعات النقد (فلس)",
   to: "إلى",
   total_fils: "الإجمالي (فلس)",
@@ -134,6 +138,8 @@ const FIELD_LABELS_AR: Record<string, string> = {
   value: "القيمة",
   variance_fils: "الفارق (فلس)",
   variance_kwd: "الفارق (د.ك)",
+  notes: "ملاحظات",
+  end_at: "وقت النهاية",
 };
 
 const VALUE_LABELS_AR: Record<string, string> = {

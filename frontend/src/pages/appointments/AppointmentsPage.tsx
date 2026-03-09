@@ -1,9 +1,10 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { ClipLoader } from "react-spinners";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, FileText } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,9 +21,15 @@ import {
 } from "@/components/ui/searchable-select";
 
 import { useAppointmentsCalendar } from "@/hooks/appointments/useAppointments";
+import { useToast } from "@/hooks/use-toast";
+import api from "@/lib/axios";
 import { useStaff } from "@/hooks/staff/useStaff";
 import { useRooms } from "@/hooks/rooms/useRooms";
 import { useAppointmentsColumns } from "@/pages/appointments/_components/appointmentsColumns";
+import {
+  APPOINTMENT_STATUS_ORDER,
+  getAppointmentStatusLabel,
+} from "@/pages/appointments/appointmentWorkflow";
 import type { Appointment } from "@/pages/appointments/types";
 
 const toInputDateTime = (date: Date) => {
@@ -47,6 +54,7 @@ const endOfToday = () => {
 const AppointmentsPage: React.FC = () => {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [from, setFrom] = useState(() => toInputDateTime(startOfToday()));
   const [to, setTo] = useState(() => toInputDateTime(endOfToday()));
@@ -54,9 +62,11 @@ const AppointmentsPage: React.FC = () => {
   const [roomId, setRoomId] = useState<number | undefined>();
   const [staffSearch, setStaffSearch] = useState("");
   const [roomSearch, setRoomSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const rowNumberStart = (currentPage - 1) * itemsPerPage + 1;
@@ -86,7 +96,6 @@ const AppointmentsPage: React.FC = () => {
   const rooms = roomsQuery.data?.data ?? [];
 
   const filteredAppointments = useMemo(() => {
-    if (!searchQuery) return appointments;
     const term = searchQuery.toLowerCase();
     return appointments.filter((appointment) => {
       const customerName = `${appointment.customer?.firstName ?? ""} ${
@@ -97,16 +106,35 @@ const AppointmentsPage: React.FC = () => {
         appointment.staff?.user?.firstName ?? ""
       } ${appointment.staff?.user?.lastName ?? ""}`.toLowerCase();
       const roomName = (appointment.room?.name ?? "").toLowerCase();
+      const actualStaffName = `${
+        appointment.actualStaff?.displayName ?? ""
+      } ${appointment.actualStaff?.user?.firstName ?? ""} ${
+        appointment.actualStaff?.user?.lastName ?? ""
+      }`.toLowerCase();
+      const actualRoomName = (appointment.actualRoom?.name ?? "").toLowerCase();
       const status = String(appointment.status ?? "").toLowerCase();
+      const sourceType = String(appointment.sourceType ?? "").toLowerCase();
+      const cancelReason = String(appointment.cancelReason ?? "").toLowerCase();
+      const checkoutOrderId = String(appointment.checkoutOrderId ?? "");
+      const matchesStatus =
+        !statusFilter || status === String(statusFilter).toLowerCase();
+      if (!matchesStatus) return false;
+      if (!term) return true;
+
       return (
         customerName.includes(term) ||
-        serviceName.includes(term) ||
-        staffName.includes(term) ||
-        roomName.includes(term) ||
-        status.includes(term)
+          serviceName.includes(term) ||
+          staffName.includes(term) ||
+          actualStaffName.includes(term) ||
+          roomName.includes(term) ||
+          actualRoomName.includes(term) ||
+          status.includes(term) ||
+          sourceType.includes(term) ||
+          cancelReason.includes(term) ||
+          checkoutOrderId.includes(term)
       );
     });
-  }, [appointments, searchQuery]);
+  }, [appointments, searchQuery, statusFilter]);
 
   const totalItems = filteredAppointments.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
@@ -128,6 +156,67 @@ const AppointmentsPage: React.FC = () => {
   const handleResetToday = () => {
     setFrom(toInputDateTime(startOfToday()));
     setTo(toInputDateTime(endOfToday()));
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      setExportingPdf(true);
+      const res = await api.get("/appointments/export/pdf", {
+        params: {
+          from,
+          to,
+          staffId: staffId || undefined,
+          roomId: roomId || undefined,
+          search: searchQuery || undefined,
+        },
+        responseType: "blob",
+      });
+
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const contentDisposition = String(
+        res.headers["content-disposition"] || "",
+      );
+      const matchedFileName = contentDisposition.match(/filename="?([^"]+)"?/i);
+      const fileName =
+        matchedFileName?.[1] ||
+        `appointments_${new Date().toISOString().slice(0, 10)}.pdf`;
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title:
+          t("appointments.export_pdf_success") ||
+          t("reports.export_ready") ||
+          "Export ready",
+        description:
+          t("appointments.export_pdf_success_description") ||
+          t("reports.export_success_suffix") ||
+          "downloaded successfully.",
+      });
+    } catch (err: any) {
+      toast({
+        variant: "destructive",
+        title:
+          t("appointments.export_pdf_failed") ||
+          t("reports.export_failed") ||
+          "Export failed",
+        description:
+          err?.response?.data?.error?.message ||
+          err?.message ||
+          t("appointments.export_pdf_failed_description") ||
+          t("reports.export_error") ||
+          "Could not export PDF.",
+      });
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   return (
@@ -173,7 +262,7 @@ const AppointmentsPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <label className="text-xs text-muted-foreground">
                   {t("appointments.from") || "From"}
@@ -196,6 +285,28 @@ const AppointmentsPage: React.FC = () => {
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">
+                  {t("appointments.status_filter") || "Status"}
+                </label>
+                <select
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={statusFilter}
+                  onChange={(event) => {
+                    setStatusFilter(event.target.value);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <option value="">
+                    {t("appointments.all_statuses") || "All statuses"}
+                  </option>
+                  {APPOINTMENT_STATUS_ORDER.map((status) => (
+                    <option key={status} value={status}>
+                      {getAppointmentStatusLabel(t, status)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">
                   {t("appointments.staff") || "Staff"}
                 </label>
                 <SearchableSelect
@@ -209,9 +320,7 @@ const AppointmentsPage: React.FC = () => {
                   }
                   onSearch={setStaffSearch}
                   isLoading={staffQuery.isLoading}
-                  emptyMessage={
-                    t("appointments.no_staff") || "No staff found"
-                  }
+                  emptyMessage={t("appointments.no_staff") || "No staff found"}
                   allowClear={!!staffId}
                   onClear={() => setStaffId(undefined)}
                 >
@@ -293,8 +402,35 @@ const AppointmentsPage: React.FC = () => {
               <Button variant="outline" onClick={handleResetToday}>
                 {t("appointments.today") || "Today"}
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setStatusFilter("");
+                  setStaffId(undefined);
+                  setRoomId(undefined);
+                  setSearchQuery("");
+                  setSearchTerm("");
+                  handleResetToday();
+                }}
+              >
+                {t("reports.reset") || "Reset"}
+              </Button>
               <Button onClick={() => appointmentsQuery.refetch()}>
                 {t("appointments.refresh") || "Refresh"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleExportPdf}
+                disabled={exportingPdf || appointmentsQuery.isLoading}
+              >
+                <FileText className="w-4 h-4" />
+                {exportingPdf
+                  ? t("appointments.exporting_pdf") ||
+                    t("reports.exporting") ||
+                    "Exporting..."
+                  : t("appointments.export_pdf") ||
+                    t("reports.export_pdf") ||
+                    "Export PDF"}
               </Button>
             </div>
           </div>

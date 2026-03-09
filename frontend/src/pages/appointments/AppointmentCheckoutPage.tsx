@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -19,6 +20,12 @@ import { useAppointmentCheckout } from "@/hooks/appointments/useAppointmentCheck
 import { useProducts } from "@/hooks/products/useProducts";
 import { usePaymentMethods } from "@/hooks/paymentMethods/usePaymentMethods";
 import { usePayPosOrder } from "@/hooks/pos/usePosMutations";
+import { usePosOrder } from "@/hooks/pos/usePosOrders";
+import {
+  canCheckoutAppointment,
+  isAppointmentCheckedOut,
+} from "@/pages/appointments/appointmentWorkflow";
+import AppointmentStatusBadge from "@/pages/appointments/_components/AppointmentStatusBadge";
 import type {
   Appointment,
   AppointmentCalendarResponse,
@@ -34,13 +41,6 @@ type CheckoutProduct = {
   unitPriceFils: number;
   totalPriceFils: number;
 };
-
-const allowedStatuses = new Set([
-  "booked",
-  "checked_in",
-  "in_service",
-  "completed",
-]);
 
 const toFilsFromKwd = (value?: number | null) => {
   const numeric = Number(value);
@@ -89,8 +89,9 @@ const AppointmentCheckoutPage: React.FC = () => {
   const [createdOrder, setCreatedOrder] = useState<PosOrder | null>(null);
   const [paymentMethod, setPaymentMethod] = useState("");
 
-  const appointmentFromLocation = (location.state as { appointment?: Appointment } | null)
-    ?.appointment;
+  const appointmentFromLocation = (
+    location.state as { appointment?: Appointment } | null
+  )?.appointment;
 
   const cachedAppointment = useMemo(() => {
     if (!appointmentId) return undefined;
@@ -107,6 +108,9 @@ const AppointmentCheckoutPage: React.FC = () => {
   }, [appointmentId, queryClient]);
 
   const appointment = appointmentFromLocation || cachedAppointment;
+  const existingOrderQuery = usePosOrder(
+    appointment?.checkoutOrderId ?? undefined,
+  );
 
   const productsQuery = useProducts({
     currentPage: 1,
@@ -119,10 +123,13 @@ const AppointmentCheckoutPage: React.FC = () => {
   const payOrderMutation = usePayPosOrder();
   const products = productsQuery.data?.data ?? [];
   const paymentMethods = paymentMethodsQuery.data ?? [];
+  const existingOrder = existingOrderQuery.data?.data ?? null;
 
   const isLocked = !!createdOrder;
   const isProcessing = checkoutMutation.isPending || payOrderMutation.isPending;
   const hasPaymentMethod = Number(paymentMethod) > 0;
+  const canCheckout = canCheckoutAppointment(appointment);
+  const alreadyCheckedOut = isAppointmentCheckedOut(appointment);
 
   useEffect(() => {
     if (!paymentMethod && paymentMethods.length) {
@@ -167,7 +174,7 @@ const AppointmentCheckoutPage: React.FC = () => {
   };
 
   const addProduct = (product: Product) => {
-    if (isLocked) return;
+    if (isLocked || alreadyCheckedOut) return;
     const productId = Number(product.id);
     const key = `product-${productId}`;
     const unitPriceFils = getProductPriceFils(product);
@@ -204,7 +211,7 @@ const AppointmentCheckoutPage: React.FC = () => {
     key: string,
     fields: Partial<Pick<CheckoutProduct, "quantity">>,
   ) => {
-    if (isLocked) return;
+    if (isLocked || alreadyCheckedOut) return;
     setCartItems((prev) =>
       prev.map((item) => {
         if (item.key !== key) return item;
@@ -219,13 +226,13 @@ const AppointmentCheckoutPage: React.FC = () => {
   };
 
   const removeProduct = (key: string) => {
-    if (isLocked) return;
+    if (isLocked || alreadyCheckedOut) return;
     setCartItems((prev) => prev.filter((item) => item.key !== key));
   };
 
   const handleCheckout = () => {
     if (!appointmentId || !appointment) return;
-    if (!allowedStatuses.has(String(appointment.status || ""))) return;
+    if (!canCheckout) return;
     if (createdOrder) {
       if (createdOrder.status === "paid") return;
       const orderTotal = getOrderTotalKwd(createdOrder);
@@ -351,9 +358,7 @@ const AppointmentCheckoutPage: React.FC = () => {
                         "Review the appointment before checkout."}
                     </p>
                   </div>
-                  <Badge className="bg-primary/10 text-primary border border-primary/20">
-                    {appointment.status}
-                  </Badge>
+                  <AppointmentStatusBadge status={appointment.status} />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -392,6 +397,12 @@ const AppointmentCheckoutPage: React.FC = () => {
                         appointment.staff?.user?.email ||
                         "-"}
                     </p>
+                    {appointment.actualStaff?.displayName ? (
+                      <p className="text-xs text-muted-foreground">
+                        {t("appointments.actual_staff") || "Actual staff"}:{" "}
+                        {appointment.actualStaff.displayName}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-1">
                     <p className="text-xs text-muted-foreground">
@@ -403,6 +414,12 @@ const AppointmentCheckoutPage: React.FC = () => {
                     <p className="text-xs text-muted-foreground">
                       {appointment.room?.roomType?.name || "-"}
                     </p>
+                    {appointment.actualRoom?.name ? (
+                      <p className="text-xs text-muted-foreground">
+                        {t("appointments.actual_room") || "Actual room"}:{" "}
+                        {appointment.actualRoom.name}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="md:col-span-2 rounded-lg border border-border bg-muted/40 p-3 space-y-1">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -414,9 +431,45 @@ const AppointmentCheckoutPage: React.FC = () => {
                       {formatDateTime(appointment.endAt, dateLocale)}
                     </p>
                   </div>
+                  {appointment.rescheduledFromAppointmentId ? (
+                    <div className="md:col-span-2 rounded-lg border border-border bg-muted/40 p-3 space-y-1">
+                      <p className="text-xs text-muted-foreground">
+                        {t("appointments.rescheduled_from") ||
+                          "Rescheduled from"}
+                      </p>
+                      <p className="font-medium">
+                        #{appointment.rescheduledFromAppointmentId}
+                      </p>
+                    </div>
+                  ) : null}
+                  {appointment.cancelReason ? (
+                    <div className="md:col-span-2 rounded-lg border border-border bg-muted/40 p-3 space-y-1">
+                      <p className="text-xs text-muted-foreground">
+                        {t("appointments.cancel_reason") || "Cancel reason"}
+                      </p>
+                      <p className="font-medium">{appointment.cancelReason}</p>
+                    </div>
+                  ) : null}
                 </div>
 
-                {!allowedStatuses.has(String(appointment.status || "")) ? (
+                {alreadyCheckedOut ? (
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">
+                    <div className="font-medium">
+                      {t("appointments.already_checked_out") ||
+                        "This appointment has already been checked out."}
+                    </div>
+                    <div className="mt-1">
+                      {t("appointments.checkout_order") || "Checkout order"}: #
+                      {appointment.checkoutOrderId || "-"}
+                    </div>
+                    <div className="mt-1">
+                      {t("appointments.checked_out_at") || "Checked out at"}:{" "}
+                      {formatDateTime(appointment.checkedOutAt, dateLocale)}
+                    </div>
+                  </div>
+                ) : null}
+
+                {!canCheckout && !alreadyCheckedOut ? (
                   <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-600">
                     {t("appointments.not_eligible") ||
                       "This appointment is not eligible for checkout."}
@@ -443,16 +496,19 @@ const AppointmentCheckoutPage: React.FC = () => {
                 </div>
 
                 <Input
-                  placeholder={t("appointments.search_products") || "Search products..."}
+                  placeholder={
+                    t("appointments.search_products") || "Search products..."
+                  }
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
-                  disabled={isLocked}
+                  disabled={isLocked || alreadyCheckedOut}
                 />
 
                 {productsQuery.isLoading ? (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <ClipLoader size={16} color="hsl(var(--primary))" />
-                    {t("appointments.loading_products") || "Loading products..."}
+                    {t("appointments.loading_products") ||
+                      "Loading products..."}
                   </div>
                 ) : products.length ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -471,7 +527,7 @@ const AppointmentCheckoutPage: React.FC = () => {
                         <Button
                           size="sm"
                           onClick={() => addProduct(product)}
-                          disabled={isLocked}
+                          disabled={isLocked || alreadyCheckedOut}
                         >
                           {t("appointments.add") || "Add"}
                         </Button>
@@ -506,7 +562,9 @@ const AppointmentCheckoutPage: React.FC = () => {
                     <span className="text-muted-foreground">
                       {t("appointments.service") || "Service"}
                     </span>
-                    <span className="font-medium">{formatFils(servicePriceFils)}</span>
+                    <span className="font-medium">
+                      {formatFils(servicePriceFils)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
@@ -514,7 +572,10 @@ const AppointmentCheckoutPage: React.FC = () => {
                     </span>
                     <span className="font-medium">
                       {formatFils(
-                        cartItems.reduce((sum, item) => sum + item.totalPriceFils, 0),
+                        cartItems.reduce(
+                          (sum, item) => sum + item.totalPriceFils,
+                          0,
+                        ),
                       )}
                     </span>
                   </div>
@@ -538,7 +599,7 @@ const AppointmentCheckoutPage: React.FC = () => {
                             size="sm"
                             variant="outline"
                             onClick={() => removeProduct(item.key)}
-                            disabled={isLocked}
+                            disabled={isLocked || alreadyCheckedOut}
                           >
                             {t("appointments.remove") || "Remove"}
                           </Button>
@@ -558,7 +619,7 @@ const AppointmentCheckoutPage: React.FC = () => {
                                   quantity: Number(e.target.value),
                                 })
                               }
-                              disabled={isLocked}
+                              disabled={isLocked || isProcessing || alreadyCheckedOut}
                             />
                           </div>
                           <div>
@@ -594,7 +655,9 @@ const AppointmentCheckoutPage: React.FC = () => {
                     <span className="text-muted-foreground">
                       {t("appointments.subtotal_cents") || "Subtotal (fils)"}
                     </span>
-                    <span className="font-medium">{formatFils(subtotalFils)}</span>
+                    <span className="font-medium">
+                      {formatFils(subtotalFils)}
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
@@ -606,8 +669,10 @@ const AppointmentCheckoutPage: React.FC = () => {
                         min={0}
                         step={1}
                         value={discountFils}
-                        onChange={(e) => setDiscountFils(Number(e.target.value))}
-                        disabled={isLocked}
+                        onChange={(e) =>
+                          setDiscountFils(Number(e.target.value))
+                        }
+                        disabled={isLocked || alreadyCheckedOut}
                       />
                     </div>
                     <div>
@@ -620,7 +685,7 @@ const AppointmentCheckoutPage: React.FC = () => {
                         step={1}
                         value={taxFils}
                         onChange={(e) => setTaxFils(Number(e.target.value))}
-                        disabled={isLocked}
+                        disabled={isLocked || alreadyCheckedOut}
                       />
                     </div>
                   </div>
@@ -628,7 +693,9 @@ const AppointmentCheckoutPage: React.FC = () => {
                     <span className="text-muted-foreground">
                       {t("appointments.total_cents") || "Total (fils)"}
                     </span>
-                    <span className="font-semibold">{formatFils(totalFils)}</span>
+                    <span className="font-semibold">
+                      {formatFils(totalFils)}
+                    </span>
                   </div>
                 </div>
 
@@ -639,10 +706,12 @@ const AppointmentCheckoutPage: React.FC = () => {
                   <textarea
                     rows={3}
                     className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                    placeholder={t("appointments.notes_placeholder") || "Optional notes"}
+                    placeholder={
+                      t("appointments.notes_placeholder") || "Optional notes"
+                    }
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    disabled={isLocked || isProcessing}
+                    disabled={isLocked || isProcessing || alreadyCheckedOut}
                   />
                 </div>
 
@@ -656,6 +725,7 @@ const AppointmentCheckoutPage: React.FC = () => {
                     onChange={(e) => setPaymentMethod(e.target.value)}
                     disabled={
                       isProcessing ||
+                      alreadyCheckedOut ||
                       createdOrder?.status === "paid" ||
                       paymentMethodsQuery.isLoading ||
                       !paymentMethods.length
@@ -663,9 +733,7 @@ const AppointmentCheckoutPage: React.FC = () => {
                   >
                     {paymentMethods.map((method) => (
                       <option key={method.id} value={String(method.id)}>
-                        {i18n.language === "ar"
-                          ? method.nameAr
-                          : method.nameEn}
+                        {i18n.language === "ar" ? method.nameAr : method.nameEn}
                       </option>
                     ))}
                   </select>
@@ -682,9 +750,10 @@ const AppointmentCheckoutPage: React.FC = () => {
                     onClick={handleCheckout}
                     disabled={
                       isProcessing ||
+                      alreadyCheckedOut ||
                       createdOrder?.status === "paid" ||
-                      !allowedStatuses.has(String(appointment.status || "")) ||
-                      (createdOrder && !hasPaymentMethod)
+                      !canCheckout ||
+                      Boolean(createdOrder && !hasPaymentMethod)
                     }
                   >
                     {isProcessing ? (
@@ -699,10 +768,23 @@ const AppointmentCheckoutPage: React.FC = () => {
                       t("pos.paid") || "Paid"
                     ) : createdOrder ? (
                       t("pos.pay_order") || "Pay order"
+                    ) : alreadyCheckedOut ? (
+                      t("appointments.checked_out") || "Checked out"
                     ) : (
                       t("appointments.checkout_now") || "Checkout"
                     )}
                   </Button>
+                  {appointment.checkoutOrderId ? (
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        navigate(`/pos/history?orderId=${appointment.checkoutOrderId}`)
+                      }
+                    >
+                      {t("appointments.open_order_history") ||
+                        "Open order history"}
+                    </Button>
+                  ) : null}
                   <Button
                     variant="outline"
                     onClick={() => navigate("/appointments")}
@@ -713,7 +795,7 @@ const AppointmentCheckoutPage: React.FC = () => {
               </div>
             </Card>
 
-            {createdOrder ? (
+            {createdOrder || existingOrder ? (
               <Card className="bg-card border-border rounded-xl shadow-sm">
                 <div className="p-6 space-y-3">
                   <div className="flex items-center justify-between">
@@ -721,29 +803,33 @@ const AppointmentCheckoutPage: React.FC = () => {
                       {t("appointments.order_summary") || "Order summary"}
                     </h3>
                     <Badge className="bg-primary/10 text-primary border border-primary/20">
-                      #{createdOrder.id}
+                      #{(createdOrder || existingOrder)?.id}
                     </Badge>
                   </div>
                   <div className="space-y-2 text-sm text-muted-foreground">
                     <div className="flex items-center justify-between">
-                      <span>{t("appointments.subtotal_cents") || "Subtotal"}</span>
+                      <span>
+                        {t("appointments.subtotal_cents") || "Subtotal"}
+                      </span>
                       <span className="text-foreground">
                         {formatFils(
                           Number(
-                            (createdOrder as any).subtotalFils ??
-                              (createdOrder as any).subtotalCents ??
+                            ((createdOrder || existingOrder) as any)?.subtotalFils ??
+                              ((createdOrder || existingOrder) as any)?.subtotalCents ??
                               subtotalFils,
                           ),
                         )}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>{t("appointments.discount_cents") || "Discount"}</span>
+                      <span>
+                        {t("appointments.discount_cents") || "Discount"}
+                      </span>
                       <span className="text-foreground">
                         {formatFils(
                           Number(
-                            (createdOrder as any).discountFils ??
-                              (createdOrder as any).discountCents ??
+                            ((createdOrder || existingOrder) as any)?.discountFils ??
+                              ((createdOrder || existingOrder) as any)?.discountCents ??
                               0,
                           ),
                         )}
@@ -754,8 +840,8 @@ const AppointmentCheckoutPage: React.FC = () => {
                       <span className="text-foreground">
                         {formatFils(
                           Number(
-                            (createdOrder as any).taxFils ??
-                              (createdOrder as any).taxCents ??
+                            ((createdOrder || existingOrder) as any)?.taxFils ??
+                              ((createdOrder || existingOrder) as any)?.taxCents ??
                               0,
                           ),
                         )}
@@ -766,8 +852,8 @@ const AppointmentCheckoutPage: React.FC = () => {
                       <span>
                         {formatFils(
                           Number(
-                            (createdOrder as any).totalFils ??
-                              (createdOrder as any).totalCents ??
+                            ((createdOrder || existingOrder) as any)?.totalFils ??
+                              ((createdOrder || existingOrder) as any)?.totalCents ??
                               totalFils,
                           ),
                         )}

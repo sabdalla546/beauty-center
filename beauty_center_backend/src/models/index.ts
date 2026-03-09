@@ -140,7 +140,51 @@ StockMovement.belongsTo(Product, { foreignKey: "productId", as: "product" });
 
 ShiftSession.belongsTo(User, { foreignKey: "userId", as: "user" });
 User.hasMany(ShiftSession, { foreignKey: "userId", as: "shiftSessions" });
-/** ===== export (optional) ===== */
+
+// actual execution references
+Appointment.belongsTo(Staff, {
+  foreignKey: "actualStaffId",
+  as: "actualStaff",
+});
+
+Appointment.belongsTo(Room, {
+  foreignKey: "actualRoomId",
+  as: "actualRoom",
+});
+
+// package linkage
+Appointment.belongsTo(CustomerPackage, {
+  foreignKey: "customerPackageId",
+  as: "customerPackage",
+  constraints: false,
+});
+
+// completion / audit users
+Appointment.belongsTo(User, {
+  foreignKey: "completedBy",
+  as: "completedByUser",
+});
+
+Appointment.belongsTo(User, {
+  foreignKey: "cancelledBy",
+  as: "cancelledByUser",
+});
+
+Appointment.belongsTo(User, {
+  foreignKey: "noShowMarkedBy",
+  as: "noShowMarkedByUser",
+});
+
+// self-reference for reschedule lineage
+Appointment.belongsTo(Appointment, {
+  foreignKey: "rescheduledFromAppointmentId",
+  as: "rescheduledFrom",
+});
+Appointment.belongsTo(Order, {
+  foreignKey: "checkoutOrderId",
+  as: "checkoutOrder",
+  constraints: false,
+});
 export {
   sequelize,
   User,

@@ -6,9 +6,15 @@ interface UseRoomsParams {
   searchQuery: string;
   roomTypeId?: number;
   status?: string;
+  enabled?: boolean;
 }
 
-export const useRooms = ({ searchQuery, roomTypeId, status }: UseRoomsParams) => {
+export const useRooms = ({
+  searchQuery,
+  roomTypeId,
+  status,
+  enabled = true,
+}: UseRoomsParams) => {
   return useQuery<RoomsResponse>({
     queryKey: ["rooms", searchQuery, roomTypeId, status],
     queryFn: () =>
@@ -21,6 +27,7 @@ export const useRooms = ({ searchQuery, roomTypeId, status }: UseRoomsParams) =>
           },
         })
         .then((res) => res.data),
+    enabled,
   });
 };
 

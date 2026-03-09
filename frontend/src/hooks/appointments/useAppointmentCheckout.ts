@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { useToast } from "@/hooks/use-toast";
 
@@ -12,6 +12,7 @@ export interface AppointmentCheckoutInput {
 }
 
 export const useAppointmentCheckout = () => {
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
@@ -23,6 +24,9 @@ export const useAppointmentCheckout = () => {
         notes: values.notes ?? null,
       }),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["appointments-calendar"] });
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["pos-orders"] });
       toast({
         title: "Success",
         description: "Appointment checked out successfully",

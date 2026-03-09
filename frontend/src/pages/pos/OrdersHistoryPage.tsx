@@ -6,6 +6,7 @@ import { ClipLoader } from "react-spinners";
 import { ReceiptText, Filter, RefreshCcw } from "lucide-react";
 import { format } from "date-fns";
 import { enUS, ar } from "date-fns/locale";
+import { useSearchParams } from "react-router-dom";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,8 @@ const sum = (values: number[]) => values.reduce((acc, val) => acc + val, 0);
 const OrdersHistoryPage: React.FC = () => {
   const { t, i18n } = useTranslation("common");
   const dateLocale = i18n.language === "ar" ? ar : enUS;
+  const [searchParams] = useSearchParams();
+  const presetOrderId = Number(searchParams.get("orderId") || 0) || undefined;
 
   const [searchTerm, setSearchTerm] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -99,7 +102,7 @@ const OrdersHistoryPage: React.FC = () => {
   const payOrderMutation = usePayPosOrder();
   const cancelOrderMutation = useCancelPosOrder();
   const refundOrderMutation = useRefundPosOrder();
-  const selectedOrderQuery = usePosOrder(selectedOrder?.id);
+  const selectedOrderQuery = usePosOrder(selectedOrder?.id ?? presetOrderId);
 
   const filteredOrders = useMemo(() => {
     if (paymentMethod === "all") return orders;
@@ -118,8 +121,8 @@ const OrdersHistoryPage: React.FC = () => {
 
   useEffect(() => {
     const latest = selectedOrderQuery.data?.data;
-    if (!latest || !selectedOrder) return;
-    if (Number(latest.id) !== Number(selectedOrder.id)) return;
+    if (!latest) return;
+    if (selectedOrder && Number(latest.id) !== Number(selectedOrder.id)) return;
     setSelectedOrder(latest);
   }, [selectedOrderQuery.data, selectedOrder]);
 

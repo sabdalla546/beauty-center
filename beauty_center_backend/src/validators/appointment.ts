@@ -1,16 +1,32 @@
-// src/validators/appointment.ts
 import { z } from "zod";
 
 const dateLike = z.union([z.string(), z.date()]);
 
 const toDate = (v: unknown): Date => {
   if (v instanceof Date) return v;
-  const d = new Date(String(v));
-  return d;
+  return new Date(String(v));
 };
 
 const isValidDate = (d: Date) =>
   d instanceof Date && !Number.isNaN(d.getTime());
+
+export const appointmentStatusEnum = z.enum([
+  "booked",
+  "confirmed",
+  "checked_in",
+  "in_service",
+  "completed",
+  "cancelled",
+  "no_show",
+  "rescheduled",
+]);
+
+export const appointmentSourceTypeEnum = z.enum([
+  "single_service",
+  "package",
+  "complimentary",
+  "adjustment",
+]);
 
 export const createAppointmentSchema = z
   .object({
@@ -19,10 +35,16 @@ export const createAppointmentSchema = z
     staffId: z.number().int().positive().optional().nullable(),
     roomId: z.number().int().positive().optional().nullable(),
     startAt: dateLike,
-    // ✅ endAt optional (server can auto-calc)
     endAt: dateLike.optional(),
-    status: z.string().max(32).optional(),
+
+    // already added in model, but avoid forcing usage now
+    sourceType: appointmentSourceTypeEnum.optional(),
+    sourceId: z.number().int().positive().optional().nullable(),
+    customerPackageId: z.number().int().positive().optional().nullable(),
+
+    status: appointmentStatusEnum.optional(),
     notes: z.string().optional().nullable(),
+    internalNotes: z.string().optional().nullable(),
   })
   .superRefine((val, ctx) => {
     const start = toDate(val.startAt);
@@ -54,6 +76,14 @@ export const createAppointmentSchema = z
         });
       }
     }
+
+    if (val.sourceType === "package" && !val.customerPackageId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "customerPackageId is required when sourceType is package",
+        path: ["customerPackageId"],
+      });
+    }
   });
 
 export const updateAppointmentSchema = z
@@ -64,11 +94,18 @@ export const updateAppointmentSchema = z
     roomId: z.number().int().positive().optional().nullable(),
     startAt: dateLike.optional(),
     endAt: dateLike.optional(),
-    status: z.string().max(32).optional(),
+
+    sourceType: appointmentSourceTypeEnum.optional(),
+    sourceId: z.number().int().positive().optional().nullable(),
+    customerPackageId: z.number().int().positive().optional().nullable(),
+
+    status: appointmentStatusEnum.optional(),
     notes: z.string().optional().nullable(),
+    internalNotes: z.string().optional().nullable(),
+
+    cancelReason: z.string().max(255).optional().nullable(),
   })
   .superRefine((val, ctx) => {
-    // validate provided date fields individually
     if (val.startAt !== undefined) {
       const start = toDate(val.startAt);
       if (!isValidDate(start)) {
@@ -91,11 +128,9 @@ export const updateAppointmentSchema = z
       }
     }
 
-    // if both provided, check ordering
     if (val.startAt !== undefined && val.endAt !== undefined) {
       const start = toDate(val.startAt);
       const end = toDate(val.endAt);
-
       if (isValidDate(start) && isValidDate(end) && end <= start) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -104,8 +139,84 @@ export const updateAppointmentSchema = z
         });
       }
     }
+
+    if (val.sourceType === "package" && val.customerPackageId === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "customerPackageId is required when sourceType is package",
+        path: ["customerPackageId"],
+      });
+    }
   });
 
 export const updateAppointmentStatusSchema = z.object({
-  status: z.string().min(1).max(32),
+  status: z.enum([
+    "confirmed",
+    "checked_in",
+    "in_service",
+    "completed",
+    "cancelled",
+    "no_show",
+  ]),
+  cancelReason: z.string().max(255).optional().nullable(),
 });
+export const confirmAppointmentSchema = z.object({});
+
+export const checkInAppointmentSchema = z.object({});
+
+export const startAppointmentServiceSchema = z.object({
+  actualStaffId: z.number().int().positive().optional().nullable(),
+  actualRoomId: z.number().int().positive().optional().nullable(),
+});
+
+export const completeAppointmentSchema = z.object({
+  actualStaffId: z.number().int().positive().optional().nullable(),
+  actualRoomId: z.number().int().positive().optional().nullable(),
+});
+
+export const cancelAppointmentSchema = z.object({
+  cancelReason: z.string().trim().min(1).max(255),
+});
+
+export const markAppointmentNoShowSchema = z.object({});
+
+export const rescheduleAppointmentSchema = z
+  .object({
+    newStartAt: dateLike,
+    newEndAt: dateLike.optional(),
+    staffId: z.number().int().positive().optional().nullable(),
+    roomId: z.number().int().positive().optional().nullable(),
+    reason: z.string().trim().max(255).optional().nullable(),
+    status: z.enum(["booked", "confirmed"]).optional(),
+  })
+  .superRefine((val, ctx) => {
+    const start = toDate(val.newStartAt);
+    if (!isValidDate(start)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "newStartAt is invalid",
+        path: ["newStartAt"],
+      });
+      return;
+    }
+
+    if (val.newEndAt !== undefined) {
+      const end = toDate(val.newEndAt);
+      if (!isValidDate(end)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "newEndAt is invalid",
+          path: ["newEndAt"],
+        });
+        return;
+      }
+
+      if (end <= start) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "newEndAt must be after newStartAt",
+          path: ["newEndAt"],
+        });
+      }
+    }
+  });

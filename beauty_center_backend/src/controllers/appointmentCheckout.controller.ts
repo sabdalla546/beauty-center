@@ -19,12 +19,7 @@ import {
   Product,
 } from "../models";
 
-const ALLOWED_APPOINTMENT_STATUSES_FOR_CHECKOUT = [
-  "booked",
-  "checked_in",
-  "in_service",
-  "completed",
-];
+const ALLOWED_APPOINTMENT_STATUSES_FOR_CHECKOUT = ["completed"];
 
 export const checkoutAppointment = asyncHandler(
   async (req: Request, res: Response) => {
@@ -52,6 +47,7 @@ export const checkoutAppointment = asyncHandler(
     }
 
     const t = await sequelize.transaction();
+
     try {
       // 0) Require an OPEN shift for financial ops
       const openShift = await ShiftSession.findOne({
@@ -60,6 +56,7 @@ export const checkoutAppointment = asyncHandler(
         lock: t.LOCK.UPDATE,
         order: [["id", "DESC"]],
       });
+
       if (!openShift) {
         throw new AppError(
           req.t?.("shift.not_open", "You must open a shift first") ??
@@ -84,20 +81,36 @@ export const checkoutAppointment = asyncHandler(
         );
       }
 
+      // direct appointment-level anti-double-checkout
+      if ((appt as any).checkoutOrderId || (appt as any).checkedOutAt) {
+        throw new AppError(
+          req.t?.(
+            "pos.appointment_already_checked_out",
+            "Appointment already checked out",
+          ) ?? "Appointment already checked out",
+          400,
+          "pos.appointment_already_checked_out",
+          {
+            appointmentId,
+            checkoutOrderId: (appt as any).checkoutOrderId ?? null,
+          },
+        );
+      }
+
       const apptStatus = String((appt as any).status ?? "");
       if (!ALLOWED_APPOINTMENT_STATUSES_FOR_CHECKOUT.includes(apptStatus)) {
         throw new AppError(
           req.t?.(
-            "pos.appointment_not_eligible",
-            "Appointment not eligible for checkout",
-          ) ?? "Appointment not eligible for checkout",
+            "pos.appointment_not_ready_for_checkout",
+            "Only completed appointments can be checked out",
+          ) ?? "Only completed appointments can be checked out",
           400,
-          "pos.appointment_not_eligible",
+          "pos.appointment_not_ready_for_checkout",
           { status: apptStatus },
         );
       }
 
-      // 2) Strong anti-double-checkout for this appointment
+      // 2) Strong anti-double-checkout fallback using externalRef
       const appointmentExternalRef = `appt:${appointmentId}`;
 
       const existingOrderForAppt = await Order.findOne({
@@ -166,17 +179,6 @@ export const checkoutAppointment = asyncHandler(
         );
       }
 
-      /* itemsToCreate.push({
-        lineType: "service",
-        referenceId: Number((service as any).id),
-        description: String((service as any).name ?? "Service"),
-        quantity: 1,
-        unitPriceFils: servicePriceFils,
-        totalPriceFils: servicePriceFils,
-        staffId: (appt as any).staffId ?? null,
-        roomId: (appt as any).roomId ?? null,
-        appointmentId: (appt as any).id,
-      });*/
       const now = new Date();
 
       // package lookup (qty=1)
@@ -199,9 +201,9 @@ export const checkoutAppointment = asyncHandler(
         unitPriceFils: servicePriceFils,
         totalPriceFils: servicePriceFils * uncoveredQty,
 
-        staffId: (appt as any).staffId ?? null,
-        roomId: (appt as any).roomId ?? null,
-        appointmentId: (appt as any).id,
+        staffId: (appt as any).actualStaffId ?? (appt as any).staffId ?? null,
+        roomId: (appt as any).actualRoomId ?? (appt as any).roomId ?? null,
+        appointmentId: Number((appt as any).id),
 
         coveredByCustomerPackageId: activePkg
           ? Number((activePkg as any).id)
@@ -221,7 +223,9 @@ export const checkoutAppointment = asyncHandler(
         });
 
         const map = new Map<number, any>();
-        for (const p of dbProducts as any[]) map.set(Number(p.id), p);
+        for (const p of dbProducts as any[]) {
+          map.set(Number(p.id), p);
+        }
 
         for (const p of products) {
           const productId = Number(p.productId);
@@ -239,6 +243,7 @@ export const checkoutAppointment = asyncHandler(
 
           const qty = Math.max(1, Number(p.qty ?? 1));
           const unitFils = Number((prod as any).priceFils ?? 0);
+
           if (!Number.isFinite(unitFils) || unitFils < 0) {
             throw new AppError(
               req.t?.(
@@ -262,7 +267,7 @@ export const checkoutAppointment = asyncHandler(
             totalPriceFils: lineTotalFils,
             staffId: null,
             roomId: null,
-            appointmentId: (appt as any).id,
+            appointmentId: Number((appt as any).id),
           });
         }
       }
@@ -311,19 +316,18 @@ export const checkoutAppointment = asyncHandler(
         { transaction: t },
       );
 
-      /*   for (const it of itemsToCreate) it.orderId = (order as any).id;
+      for (const it of itemsToCreate) {
+        it.orderId = Number((order as any).id);
+      }
 
-      await OrderItem.bulkCreate(itemsToCreate as any[], { transaction: t });*/
-      for (const it of itemsToCreate) it.orderId = (order as any).id;
-
-      // 1) create service item first (so we can link usage to orderItemId)
+      // Create service item first (so we can link usage to orderItemId)
       const [serviceItem, ...restItems] = itemsToCreate;
 
       const createdServiceItem = await OrderItem.create(serviceItem as any, {
         transaction: t,
       });
 
-      // 2) consume package if covered
+      // Consume package if covered
       const pkgId = Number(
         (serviceItem as any).coveredByCustomerPackageId || 0,
       );
@@ -332,7 +336,7 @@ export const checkoutAppointment = asyncHandler(
       if (pkgId && cover > 0) {
         await consumePackage({
           customerPackageId: pkgId,
-          appointmentId: (appt as any).id,
+          appointmentId: Number((appt as any).id),
           orderItemId: Number((createdServiceItem as any).id),
           serviceId: Number((service as any).id),
           qty: cover,
@@ -342,10 +346,19 @@ export const checkoutAppointment = asyncHandler(
         });
       }
 
-      // 3) bulk create the rest (products)
+      // Create the rest (products)
       if (restItems.length) {
         await OrderItem.bulkCreate(restItems as any[], { transaction: t });
       }
+
+      // link checkout directly to appointment
+      await appt.update(
+        {
+          checkoutOrderId: Number((order as any).id),
+          checkedOutAt: now,
+        } as any,
+        { transaction: t },
+      );
 
       const orderWithItems = await Order.findByPk((order as any).id, {
         include: [{ model: OrderItem, as: "items" }],
@@ -357,7 +370,9 @@ export const checkoutAppointment = asyncHandler(
       return res.status(201).json({
         data: {
           order: orderWithItems,
-          appointmentId: (appt as any).id,
+          appointmentId: Number((appt as any).id),
+          checkoutOrderId: Number((order as any).id),
+          checkedOutAt: now,
         },
       });
     } catch (e) {

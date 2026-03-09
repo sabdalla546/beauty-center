@@ -1,36 +1,16 @@
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { enUS, ar } from "date-fns/locale";
 import type { ColumnDef } from "@tanstack/react-table";
-import { FaEdit } from "react-icons/fa";
-import { CreditCard } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ProtectedComponent } from "@/components/routing/ProtectedComponent";
+import AppointmentActionsCell from "@/pages/appointments/_components/AppointmentActionsCell";
+import AppointmentStatusBadge from "@/pages/appointments/_components/AppointmentStatusBadge";
 import type { Appointment } from "../types";
 
 interface AppointmentColumnsProps {
   editPermission: string;
   checkoutPermission: string;
 }
-
-const statusStyles: Record<string, string> = {
-  booked: "bg-blue-500/15 text-blue-600 border-blue-500/30",
-  checked_in: "bg-indigo-500/15 text-indigo-600 border-indigo-500/30",
-  in_service: "bg-amber-500/15 text-amber-600 border-amber-500/30",
-  completed: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
-  cancelled: "bg-rose-500/15 text-rose-600 border-rose-500/30",
-  no_show: "bg-slate-500/15 text-slate-600 border-slate-500/30",
-};
-
-const checkoutAllowedStatuses = new Set([
-  "booked",
-  "checked_in",
-  "in_service",
-  "completed",
-]);
 
 const formatDateTime = (value?: string | null, locale = enUS) => {
   if (!value) return "-";
@@ -61,7 +41,6 @@ export const useAppointmentsColumns = ({
   checkoutPermission,
 }: AppointmentColumnsProps): ColumnDef<Appointment>[] => {
   const { t, i18n } = useTranslation("common");
-  const navigate = useNavigate();
   const dateLocale = i18n.language === "ar" ? ar : enUS;
 
   return [
@@ -149,17 +128,9 @@ export const useAppointmentsColumns = ({
         <div className="text-center">{t("status") || "Status"}</div>
       ),
       cell: ({ row }) => {
-        const status = String(row.original.status || "-");
         return (
           <div className="flex justify-center">
-            <Badge
-              className={
-                statusStyles[status] ||
-                "bg-slate-500/15 text-slate-600 border-slate-500/30"
-              }
-            >
-              {status}
-            </Badge>
+            <AppointmentStatusBadge status={row.original.status} />
           </div>
         );
       },
@@ -169,44 +140,13 @@ export const useAppointmentsColumns = ({
       header: () => (
         <div className="text-center">{t("actions") || "Actions"}</div>
       ),
-      cell: ({ row }) => {
-        const canCheckout = checkoutAllowedStatuses.has(
-          String(row.original.status || ""),
-        );
-        return (
-          <div className="flex justify-center gap-2">
-            <ProtectedComponent permission={editPermission}>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-yellow-400 border-yellow-700 hover:bg-yellow-900/20 hover:border-yellow-600 transition-all duration-200 shadow-sm hover:shadow-md"
-                onClick={() =>
-                  navigate(`/appointments/edit/${row.original.id}`, {
-                    state: { appointment: row.original },
-                  })
-                }
-              >
-                <FaEdit className="w-3.5 h-3.5" />
-              </Button>
-            </ProtectedComponent>
-            <ProtectedComponent permission={checkoutPermission}>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-emerald-500 border-emerald-700 hover:bg-emerald-900/20 hover:border-emerald-600 transition-all duration-200 shadow-sm hover:shadow-md"
-                onClick={() =>
-                  navigate(`/appointments/checkout/${row.original.id}`, {
-                    state: { appointment: row.original },
-                  })
-                }
-                disabled={!canCheckout}
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-              </Button>
-            </ProtectedComponent>
-          </div>
-        );
-      },
+      cell: ({ row }) => (
+        <AppointmentActionsCell
+          appointment={row.original}
+          editPermission={editPermission}
+          checkoutPermission={checkoutPermission}
+        />
+      ),
     },
   ];
 };

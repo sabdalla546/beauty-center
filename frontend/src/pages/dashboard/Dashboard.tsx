@@ -40,6 +40,7 @@ import { useServices } from "@/hooks/services/useServices";
 import { useMyOpenShift } from "@/hooks/shifts/useShifts";
 import { useStaff } from "@/hooks/staff/useStaff";
 import { useUsers } from "@/hooks/users/useUsers";
+import AppointmentStatusBadge from "@/pages/appointments/_components/AppointmentStatusBadge";
 import type { Appointment } from "@/pages/appointments/types";
 import DashboardKpiCard from "@/pages/dashboard/_components/DashboardKpiCard";
 import DashboardPanel from "@/pages/dashboard/_components/DashboardPanel";
@@ -55,7 +56,6 @@ import {
   getCustomerDisplayName,
   getStaffDisplayName,
   startOfDay,
-  toSentenceCase,
 } from "@/pages/dashboard/_components/dashboardUtils";
 
 type OverviewReport = {
@@ -150,24 +150,6 @@ type MasterStat = {
   loading: boolean;
   to: string;
   value: number;
-};
-
-const appointmentStatusStyles: Record<string, string> = {
-  booked: "bg-blue-500/15 text-blue-600 border-blue-500/30",
-  checked_in: "bg-indigo-500/15 text-indigo-600 border-indigo-500/30",
-  in_service: "bg-amber-500/15 text-amber-600 border-amber-500/30",
-  completed: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
-  cancelled: "bg-rose-500/15 text-rose-600 border-rose-500/30",
-  no_show: "bg-slate-500/15 text-slate-600 border-slate-500/30",
-};
-
-const appointmentStatusKeyMap: Record<string, string> = {
-  booked: "appointments.status_booked",
-  checked_in: "appointments.status_checked_in",
-  in_service: "appointments.status_in_service",
-  completed: "appointments.status_completed",
-  cancelled: "appointments.status_cancelled",
-  no_show: "appointments.status_no_show",
 };
 
 const moneyFormatter = (value: number | null | undefined, locale: string) =>
@@ -287,7 +269,10 @@ const Dashboard: React.FC = () => {
       const startAtMs = new Date(appointment.startAt).getTime();
       const endAtMs = new Date(appointment.endAt).getTime();
       const isClosedStatus =
-        status === "completed" || status === "cancelled" || status === "no_show";
+        status === "completed" ||
+        status === "cancelled" ||
+        status === "no_show" ||
+        status === "rescheduled";
       const isInProgressStatus =
         status === "checked_in" || status === "in_service";
       const isOngoing =
@@ -306,14 +291,21 @@ const Dashboard: React.FC = () => {
         upcoming.push(appointment);
       }
 
-      if (!isClosedStatus && (status === "booked" || status === "checked_in")) {
+      if (
+        !isClosedStatus &&
+        (status === "booked" ||
+          status === "confirmed" ||
+          status === "checked_in")
+      ) {
         waiting.push(appointment);
       }
 
       if (
         !isClosedStatus &&
         startAtMs < now &&
-        (status === "booked" || status === "checked_in")
+        (status === "booked" ||
+          status === "confirmed" ||
+          status === "checked_in")
       ) {
         overdue.push(appointment);
       }
@@ -560,14 +552,6 @@ const Dashboard: React.FC = () => {
     },
   ];
 
-  const getAppointmentStatusLabel = (status: string) => {
-    const key = appointmentStatusKeyMap[status];
-    if (!key) return toSentenceCase(status);
-
-    const translated = t(key);
-    return translated === key ? toSentenceCase(status) : translated;
-  };
-
   return (
     <div className="space-y-5" dir={dir}>
       <CompactHeader
@@ -661,10 +645,12 @@ const Dashboard: React.FC = () => {
           <DashboardKpiCard
             accentClass="bg-gradient-to-br from-card to-[hsl(var(--brand-2))/0.06]"
             description={`${formatNumber(
-              Number(statusCounts.get("booked") ?? 0),
+              Number(statusCounts.get("booked") ?? 0) +
+                Number(statusCounts.get("confirmed") ?? 0),
               locale,
             )} ${t("dashboard.booked") || "booked"} · ${formatNumber(
-              Number(statusCounts.get("in_service") ?? 0),
+              Number(statusCounts.get("checked_in") ?? 0) +
+                Number(statusCounts.get("in_service") ?? 0),
               locale,
             )} ${t("dashboard.in_service") || "in service"}`}
             direction={dir}
@@ -824,14 +810,7 @@ const Dashboard: React.FC = () => {
                             {appointment.service?.name || t("service") || "Service"}
                           </p>
                         </div>
-                        <Badge
-                          className={
-                            appointmentStatusStyles[status] ||
-                            "bg-slate-500/15 text-slate-600 border-slate-500/30"
-                          }
-                        >
-                          {getAppointmentStatusLabel(status)}
-                        </Badge>
+                        <AppointmentStatusBadge status={status} />
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                         <span>{formatTime(appointment.startAt, locale)}</span>

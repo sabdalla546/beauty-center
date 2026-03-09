@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/searchable-select";
 
 import { useCustomers } from "@/hooks/customers/useCustomers";
+import { useCustomerPackages } from "@/hooks/packages/useCustomerPackages";
 import { useServices } from "@/hooks/services/useServices";
 import { useStaff } from "@/hooks/staff/useStaff";
 import { useRooms } from "@/hooks/rooms/useRooms";
@@ -40,15 +41,21 @@ import {
   appointmentFormSchema,
   type AppointmentFormSchema,
 } from "@/pages/appointments/schemas/appointmentFormSchema";
+import {
+  APPOINTMENT_SOURCE_TYPE_OPTIONS,
+  canEditAppointment,
+  getAppointmentSourceTypeLabel,
+} from "@/pages/appointments/appointmentWorkflow";
+import AppointmentStatusBadge from "@/pages/appointments/_components/AppointmentStatusBadge";
 import type {
   Appointment,
   AppointmentCalendarResponse,
 } from "@/pages/appointments/types";
 import type { Service } from "@/pages/services/types";
 
-const toInputDateTime = (value?: string | null) => {
+const toInputDateTime = (value?: string | Date | null) => {
   if (!value) return "";
-  const date = new Date(value);
+  const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   const pad = (num: number) => String(num).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
@@ -128,16 +135,22 @@ const AppointmentFormPage: React.FC = () => {
       serviceId: undefined as any,
       staffId: undefined,
       roomId: undefined,
+      sourceType: "single_service",
+      sourceId: undefined,
+      customerPackageId: undefined,
       startAt: "",
       endAt: "",
       status: "booked",
       notes: "",
+      internalNotes: "",
     },
   });
 
   const watchedServiceId = form.watch("serviceId");
+  const watchedCustomerId = form.watch("customerId");
   const watchedStartAt = form.watch("startAt");
   const watchedEndAt = form.watch("endAt");
+  const watchedSourceType = form.watch("sourceType");
 
   const services = servicesQuery.data?.data ?? [];
   const selectedService = services.find(
@@ -153,6 +166,13 @@ const AppointmentFormPage: React.FC = () => {
   const rooms = roomsQuery.data?.data ?? [];
   const customers = customersQuery.data?.data ?? [];
   const staff = staffQuery.data?.data ?? [];
+  const customerPackagesQuery = useCustomerPackages({
+    customerId: watchedCustomerId ? Number(watchedCustomerId) : undefined,
+    onlyUsable: true,
+    serviceId: watchedServiceId ? Number(watchedServiceId) : null,
+  });
+  const customerPackages =
+    watchedSourceType === "package" ? customerPackagesQuery.data?.data ?? [] : [];
 
   useEffect(() => {
     if (isEditMode && appointment) {
@@ -161,13 +181,41 @@ const AppointmentFormPage: React.FC = () => {
         serviceId: appointment.serviceId ?? undefined,
         staffId: appointment.staffId ?? undefined,
         roomId: appointment.roomId ?? undefined,
+        sourceType: appointment.sourceType ?? "single_service",
+        sourceId: appointment.sourceId ?? undefined,
+        customerPackageId: appointment.customerPackageId ?? undefined,
         startAt: toInputDateTime(appointment.startAt),
         endAt: toInputDateTime(appointment.endAt),
         status: appointment.status ?? "booked",
         notes: appointment.notes ?? "",
+        internalNotes: appointment.internalNotes ?? "",
       });
     }
   }, [isEditMode, appointment, form]);
+
+  useEffect(() => {
+    if (watchedSourceType === "package") return;
+    if (!form.getValues("customerPackageId")) return;
+    form.setValue("customerPackageId", undefined, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  }, [watchedSourceType, form]);
+
+  useEffect(() => {
+    if (watchedSourceType !== "package") return;
+    const selectedPackageId = Number(form.getValues("customerPackageId") ?? 0);
+    if (!selectedPackageId) return;
+    const exists = customerPackages.some(
+      (customerPackage) => Number(customerPackage.id) === selectedPackageId,
+    );
+    if (!exists) {
+      form.setValue("customerPackageId", undefined, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  }, [customerPackages, watchedSourceType, form]);
 
   useEffect(() => {
     if (!selectedService || !watchedStartAt || watchedEndAt) return;
@@ -189,10 +237,22 @@ const AppointmentFormPage: React.FC = () => {
       serviceId: Number(values.serviceId),
       staffId: values.staffId !== undefined ? Number(values.staffId) : null,
       roomId: values.roomId !== undefined ? Number(values.roomId) : null,
+      sourceType: values.sourceType || "single_service",
+      sourceId:
+        values.sourceId !== undefined && values.sourceId !== null
+          ? Number(values.sourceId)
+          : null,
+      customerPackageId:
+        values.sourceType === "package" &&
+        values.customerPackageId !== undefined &&
+        values.customerPackageId !== null
+          ? Number(values.customerPackageId)
+          : null,
       startAt: values.startAt,
       endAt: endAtValue ? endAtValue : undefined,
-      status: values.status || undefined,
+      status: !isEditMode ? values.status || "booked" : undefined,
       notes: values.notes ?? null,
+      internalNotes: values.internalNotes ?? null,
     };
 
     if (isEditMode) updateMutation.mutate(payload);
@@ -203,9 +263,12 @@ const AppointmentFormPage: React.FC = () => {
     createMutation.isPending ||
     updateMutation.isPending ||
     customersQuery.isLoading ||
-    servicesQuery.isLoading;
+    servicesQuery.isLoading ||
+    (watchedSourceType === "package" && customerPackagesQuery.isLoading);
 
   const dir = i18n.dir();
+  const isReadOnlyEdit =
+    isEditMode && appointment ? !canEditAppointment(appointment) : false;
 
   if (isEditMode && !appointment) {
     return (
@@ -218,6 +281,30 @@ const AppointmentFormPage: React.FC = () => {
             {t("appointments.return_to_list") ||
               "Please return to the appointments list and select an appointment to edit."}
           </p>
+          <Button type="button" onClick={() => navigate("/appointments")}>
+            {t("appointments.back_to_list") || "Back to Appointments"}
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isReadOnlyEdit && appointment) {
+    return (
+      <div className="min-h-screen p-6 flex items-center justify-center bg-background text-foreground">
+        <Card className="max-w-lg p-6 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-lg font-semibold">
+                {t("appointments.view_only_title") || "Appointment is view only"}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {t("appointments.view_only_description") ||
+                  "Use the appointment workflow actions from the list page for this lifecycle stage."}
+              </p>
+            </div>
+            <AppointmentStatusBadge status={appointment.status} />
+          </div>
           <Button type="button" onClick={() => navigate("/appointments")}>
             {t("appointments.back_to_list") || "Back to Appointments"}
           </Button>
@@ -567,6 +654,130 @@ const AppointmentFormPage: React.FC = () => {
 
                       <FormField
                         control={form.control}
+                        name="sourceType"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="dark:text-[var(--color-text-main)]">
+                              {t("appointments.source_type") || "Source type"}
+                            </FormLabel>
+                            <FormControl>
+                              <select
+                                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                value={field.value || "single_service"}
+                                onChange={(event) => field.onChange(event.target.value)}
+                                disabled={isCoreLocked}
+                              >
+                                {APPOINTMENT_SOURCE_TYPE_OPTIONS.map((sourceType) => (
+                                  <option key={sourceType} value={sourceType}>
+                                    {getAppointmentSourceTypeLabel(t, sourceType)}
+                                  </option>
+                                ))}
+                              </select>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="sourceId"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="dark:text-[var(--color-text-main)]">
+                              {t("appointments.source_id") || "Source ID"}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min={1}
+                                value={field.value ?? ""}
+                                onChange={(event) =>
+                                  field.onChange(
+                                    event.target.value
+                                      ? Number(event.target.value)
+                                      : undefined,
+                                  )
+                                }
+                                disabled={isCoreLocked}
+                                placeholder={t("appointments.source_id_placeholder") || "Optional reference"}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {watchedSourceType === "package" ? (
+                        <FormField
+                          control={form.control}
+                          name="customerPackageId"
+                          render={({ field }) => (
+                            <FormItem className="md:col-span-2">
+                              <FormLabel className="dark:text-[var(--color-text-main)]">
+                                {t("appointments.customer_package") ||
+                                  "Customer package"}
+                              </FormLabel>
+                              <FormControl>
+                                <SearchableSelect
+                                  value={field.value ? String(field.value) : ""}
+                                  onValueChange={(value) =>
+                                    field.onChange(value ? Number(value) : undefined)
+                                  }
+                                  placeholder={
+                                    t("appointments.select_customer_package") ||
+                                    "Select customer package"
+                                  }
+                                  searchPlaceholder={
+                                    t("appointments.search_customer_packages") ||
+                                    "Search customer packages..."
+                                  }
+                                  isLoading={customerPackagesQuery.isLoading}
+                                  emptyMessage={
+                                    t("appointments.no_customer_packages") ||
+                                    "No matching customer packages found"
+                                  }
+                                  allowClear={!!field.value}
+                                  onClear={() => field.onChange(undefined)}
+                                  dir={dir}
+                                >
+                                  {customerPackages.length ? (
+                                    customerPackages.map((customerPackage) => (
+                                      <SearchableSelectItem
+                                        key={customerPackage.id}
+                                        value={String(customerPackage.id)}
+                                      >
+                                        <div className="flex flex-col">
+                                          <span className="font-medium">
+                                            {customerPackage.plan?.name ||
+                                              `#${customerPackage.id}`}
+                                          </span>
+                                          <span className="text-xs text-muted-foreground">
+                                            {t("appointments.sessions_remaining") ||
+                                              "Remaining sessions"}
+                                            : {customerPackage.remainingSessions ?? 0}
+                                          </span>
+                                        </div>
+                                      </SearchableSelectItem>
+                                    ))
+                                  ) : (
+                                    <SearchableSelectEmpty
+                                      message={
+                                        t("appointments.no_customer_packages") ||
+                                        "No matching customer packages found"
+                                      }
+                                    />
+                                  )}
+                                </SearchableSelect>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      ) : null}
+
+                      <FormField
+                        control={form.control}
                         name="startAt"
                         render={({ field }) => (
                           <FormItem>
@@ -616,44 +827,43 @@ const AppointmentFormPage: React.FC = () => {
                       )}
                     />
 
-                      <FormField
-                        control={form.control}
-                        name="status"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="dark:text-[var(--color-text-main)]">
-                              {t("appointments.status") || "Status"}
-                            </FormLabel>
-                            <FormControl>
-                              <select
-                                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                value={field.value || "booked"}
-                                onChange={(e) => field.onChange(e.target.value)}
-                              >
-                                <option value="booked">
-                                  {t("appointments.status_booked") || "Booked"}
-                                </option>
-                                <option value="checked_in">
-                                  {t("appointments.status_checked_in") || "Checked in"}
-                                </option>
-                                <option value="in_service">
-                                  {t("appointments.status_in_service") || "In service"}
-                                </option>
-                                <option value="completed">
-                                  {t("appointments.status_completed") || "Completed"}
-                                </option>
-                                <option value="cancelled">
-                                  {t("appointments.status_cancelled") || "Cancelled"}
-                                </option>
-                                <option value="no_show">
-                                  {t("appointments.status_no_show") || "No show"}
-                                </option>
-                              </select>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      {isEditMode ? (
+                        <div className="space-y-2">
+                          <FormLabel className="dark:text-[var(--color-text-main)]">
+                            {t("appointments.status") || "Status"}
+                          </FormLabel>
+                          <div className="flex h-9 items-center rounded-md border border-input px-3">
+                            <AppointmentStatusBadge status={appointment?.status} />
+                          </div>
+                        </div>
+                      ) : (
+                        <FormField
+                          control={form.control}
+                          name="status"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="dark:text-[var(--color-text-main)]">
+                                {t("appointments.status") || "Status"}
+                              </FormLabel>
+                              <FormControl>
+                                <select
+                                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                  value={field.value || "booked"}
+                                  onChange={(e) => field.onChange(e.target.value)}
+                                >
+                                  <option value="booked">
+                                    {t("appointments.status_booked") || "Booked"}
+                                  </option>
+                                  <option value="confirmed">
+                                    {t("appointments.status_confirmed") || "Confirmed"}
+                                  </option>
+                                </select>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
 
                       <FormField
                         control={form.control}
@@ -666,11 +876,37 @@ const AppointmentFormPage: React.FC = () => {
                             <FormControl>
                               <textarea
                                 {...field}
+                                value={field.value ?? ""}
                                 rows={3}
                                 className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                                 placeholder={
                                   t("appointments.notes_placeholder") ||
                                   "Add appointment notes..."
+                                }
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="internalNotes"
+                        render={({ field }) => (
+                          <FormItem className="md:col-span-2">
+                            <FormLabel className="dark:text-[var(--color-text-main)]">
+                              {t("appointments.internal_notes") || "Internal notes"}
+                            </FormLabel>
+                            <FormControl>
+                              <textarea
+                                {...field}
+                                value={field.value ?? ""}
+                                rows={3}
+                                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                placeholder={
+                                  t("appointments.internal_notes_placeholder") ||
+                                  "Add private operational notes..."
                                 }
                               />
                             </FormControl>

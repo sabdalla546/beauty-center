@@ -1,6 +1,7 @@
 // src/lib/axios.ts
 import axios, {
   AxiosError,
+  AxiosHeaders,
   InternalAxiosRequestConfig,
   AxiosResponse,
 } from "axios";
@@ -69,10 +70,9 @@ const refreshAccessToken = async () => {
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     if (accessToken) {
-      config.headers = {
-        ...config.headers,
-        Authorization: `Bearer ${accessToken}`,
-      };
+      const headers = AxiosHeaders.from(config.headers);
+      headers.set("Authorization", `Bearer ${accessToken}`);
+      config.headers = headers;
     }
     return config;
   },
@@ -109,10 +109,9 @@ api.interceptors.response.use(
     try {
       const token = await refreshAccessToken();
       if (token) {
-        originalRequest.headers = {
-          ...originalRequest.headers,
-          Authorization: `Bearer ${token}`,
-        };
+        const headers = AxiosHeaders.from(originalRequest.headers);
+        headers.set("Authorization", `Bearer ${token}`);
+        originalRequest.headers = headers;
         return api(originalRequest);
       }
       return Promise.reject(error);
