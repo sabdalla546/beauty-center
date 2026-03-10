@@ -56,3 +56,9 @@ export const APPOINTMENT_RESCHEDULE_ALLOWED_TARGETS: AppointmentStatus[] = [
   "booked",
   "confirmed",
 ];
+
+
+export const ORDER_PAYABLE_STATUSES: OrderStatus[] = [
+  "open",
+  "partially_paid",
+];
