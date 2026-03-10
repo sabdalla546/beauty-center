@@ -101,8 +101,6 @@ const seedPermissionsAndAdmin = async () => {
         passwordHash,
         firstName: ADMIN_FIRST_NAME,
         lastName: ADMIN_LAST_NAME,
-        // legacy column; RBAC remains source of truth
-        role: ADMIN_ROLE_NAME,
         isActive: true,
       },
       transaction: t,
