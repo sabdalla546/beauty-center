@@ -49,6 +49,56 @@ app.use(requestLogger);
 app.use(i18nextMiddleware.handle(i18next));
 
 // ----------------------
+// Unified response envelope
+// Ensures all controllers return a consistent top-level shape:
+// success: { ok: true, ... }
+// error:   { ok: false, error: ... }
+// ----------------------
+app.use((req, res, next) => {
+  const originalJson = res.json.bind(res);
+
+  res.json = ((body: any) => {
+    if (body && typeof body === "object") {
+      if (Object.prototype.hasOwnProperty.call(body, "ok")) {
+        return originalJson(body);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(body, "error")) {
+        return originalJson({ ok: false, ...body });
+      }
+
+      if (res.statusCode >= 400) {
+        return originalJson({
+          ok: false,
+          error: {
+            code: "request_failed",
+            message: "Request failed",
+            details: body,
+          },
+        });
+      }
+
+      return originalJson({ ok: true, ...body });
+    }
+
+    if (res.statusCode >= 400) {
+      return originalJson({
+        ok: false,
+        error: {
+          code: "request_failed",
+          message: "Request failed",
+          details: body,
+        },
+      });
+    }
+
+    return originalJson({ ok: true, data: body });
+  }) as typeof res.json;
+
+  next();
+});
+
+// ----------------------
 // Rate limiting (Auth only)
 // ----------------------
 app.use(
