@@ -283,18 +283,14 @@ export const checkoutAppointment = asyncHandler(
           ? kwdToFils(parsed.data.discountKwd)
           : parsed.data.discountFils != null
             ? Number(parsed.data.discountFils)
-            : parsed.data.discountCents != null
-              ? Number(parsed.data.discountCents)
-              : 0;
+            : 0;
 
       const taxFilsRaw =
         parsed.data.taxKwd != null
           ? kwdToFils(parsed.data.taxKwd)
           : parsed.data.taxFils != null
             ? Number(parsed.data.taxFils)
-            : parsed.data.taxCents != null
-              ? Number(parsed.data.taxCents)
-              : 0;
+            : 0;
 
       const discountFils = Math.min(Math.max(0, discountFilsRaw), subtotalFils);
       const taxFils = Math.max(0, taxFilsRaw);

@@ -518,7 +518,7 @@ const finalizeOrderAsPaid = async (params: {
           status: "active",
           totalSessions: Number((plan as any).sessionsCount) * qty,
           usedSessions: 0,
-          totalValueFils: Number((plan as any).priceCents) * qty, // ✅ fils
+          totalValueFils: Number((plan as any).priceFils) * qty,
           usedValueFils: 0,
           createdBy: userId,
         } as any,
@@ -632,7 +632,6 @@ export const createPosOrder = asyncHandler(
 
           const dbPlanPriceFils = Number(
             (plan as any).priceFils ??
-              (plan as any).priceCents ??
               kwdToFils(Number((plan as any).priceKwd ?? 0)),
           );
 
