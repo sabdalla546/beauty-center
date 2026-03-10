@@ -5,7 +5,8 @@ import {
   InferCreationAttributes,
   Model,
 } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
+import { APPOINTMENT_STATUSES } from "../constants/domain";
 
 export type AppointmentStatus =
   | "booked"
@@ -184,16 +185,7 @@ Appointment.init(
     },
 
     status: {
-      type: DataTypes.ENUM(
-        "booked",
-        "confirmed",
-        "checked_in",
-        "in_service",
-        "completed",
-        "cancelled",
-        "no_show",
-        "rescheduled",
-      ),
+      type: DataTypes.ENUM(...APPOINTMENT_STATUSES),
       allowNull: false,
       defaultValue: "booked",
       field: "status",
@@ -263,6 +255,16 @@ Appointment.init(
     sequelize,
     tableName: "appointments",
     timestamps: true,
+    indexes: [
+      { name: "appointments_status_idx", fields: ["status"] },
+      { name: "appointments_start_at_idx", fields: ["start_at"] },
+      { name: "appointments_staff_start_idx", fields: ["staff_id", "start_at"] },
+      { name: "appointments_room_start_idx", fields: ["room_id", "start_at"] },
+      {
+        name: "appointments_status_start_end_idx",
+        fields: ["status", "start_at", "end_at"],
+      },
+    ],
   },
 );
 

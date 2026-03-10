@@ -1,6 +1,7 @@
 // src/models/ShiftSession.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
+import { SHIFT_STATUSES } from "../constants/domain";
 
 export class ShiftSession extends Model {
   declare id: number;
@@ -37,7 +38,7 @@ ShiftSession.init(
     },
 
     status: {
-      type: DataTypes.ENUM("open", "closed"),
+      type: DataTypes.ENUM(...SHIFT_STATUSES),
       allowNull: false,
       defaultValue: "open",
     },

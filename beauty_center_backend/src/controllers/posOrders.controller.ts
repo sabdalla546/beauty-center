@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../errors/AppError";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 import { Op, WhereOptions, fn, literal } from "sequelize";
 import { filsToKwd, kwdToFils } from "../utils/money";
 import { createPosOrderSchema, payPosOrderSchema } from "../validators/pos";
@@ -650,8 +650,16 @@ export const createPosOrder = asyncHandler(
           totalPriceFils = unitPriceFils * qty;
         }
 
+        const normalizedStaffId = i.lineType === "service" ? (i.staffId ?? null) : null;
+        const normalizedRoomId = i.lineType === "service" ? (i.roomId ?? null) : null;
+        const normalizedAppointmentId =
+          i.lineType === "package" ? null : (i.appointmentId ?? null);
+
         itemsFils.push({
           ...i,
+          staffId: normalizedStaffId,
+          roomId: normalizedRoomId,
+          appointmentId: normalizedAppointmentId,
           quantity: qty,
           unitPriceFils,
           totalPriceFils,
