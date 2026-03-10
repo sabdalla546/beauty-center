@@ -1,6 +1,6 @@
 // src/models/User.ts
 import { CreationOptional, DataTypes, Model, Optional } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 interface UserAttrs {
   id?: number;
