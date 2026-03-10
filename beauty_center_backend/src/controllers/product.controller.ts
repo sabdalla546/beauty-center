@@ -6,7 +6,7 @@ import fs from "fs/promises";
 
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../errors/AppError";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 import {
   createProductSchema,
@@ -46,8 +46,8 @@ const toProductDTO = (req: Request, row: any) => {
 
   return {
     ...json,
-    costKwd: filsToKwd(Number(json.costFils ?? json.costCents ?? 0)),
-    priceKwd: filsToKwd(Number(json.priceFils ?? json.priceCents ?? 0)),
+    costKwd: filsToKwd(Number(json.costFils ?? 0)),
+    priceKwd: filsToKwd(Number(json.priceFils ?? 0)),
     imageUrl,
     imagePath, // optional: keeps relative path too
   };

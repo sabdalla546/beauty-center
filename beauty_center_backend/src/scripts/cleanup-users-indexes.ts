@@ -1,5 +1,5 @@
 import { QueryTypes } from "sequelize";
-import { connectDB, sequelize } from "../db/db";
+import { connectDB, sequelize } from "../db";
 
 type StatRow = {
   INDEX_NAME: string;

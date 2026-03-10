@@ -5,7 +5,7 @@ import {
   InferCreationAttributes,
   CreationOptional,
 } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 export class PackagePlan extends Model<
   InferAttributes<PackagePlan>,
@@ -15,7 +15,7 @@ export class PackagePlan extends Model<
   declare name: string;
   declare description: string | null;
 
-  declare priceCents: number; // (you can keep fils later, but cents is ok now)
+  declare priceFils: number;
   declare sessionsCount: number;
   declare validDays: number;
 
@@ -37,7 +37,11 @@ PackagePlan.init(
     name: { type: DataTypes.STRING(150), allowNull: false },
     description: { type: DataTypes.STRING(500), allowNull: true },
 
-    priceCents: { type: DataTypes.INTEGER, allowNull: false },
+    priceFils: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: "price_cents",
+    },
     sessionsCount: { type: DataTypes.INTEGER, allowNull: false },
     validDays: { type: DataTypes.INTEGER, allowNull: false },
 

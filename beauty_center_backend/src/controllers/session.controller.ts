@@ -2,7 +2,7 @@
 import { Request, Response } from "express";
 import { RefreshToken } from "../models/refreshToken.model";
 import { AppError } from "../errors/AppError";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 export interface AuthRequest extends Request {
   user?: { id: number; roles?: string[] };

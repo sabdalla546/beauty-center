@@ -6,7 +6,7 @@ import {
   InferCreationAttributes,
   Model,
 } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 export class Staff extends Model<
   InferAttributes<Staff>,

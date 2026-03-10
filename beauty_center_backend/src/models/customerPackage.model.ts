@@ -5,7 +5,7 @@ import {
   InferCreationAttributes,
   CreationOptional,
 } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 export type CustomerPackageStatus =
   | "active"
@@ -75,5 +75,18 @@ CustomerPackage.init(
     createdAt: { type: DataTypes.DATE, allowNull: false, field: "created_at" },
     updatedAt: { type: DataTypes.DATE, allowNull: false, field: "updated_at" },
   },
-  { sequelize, tableName: "customer_packages", underscored: true },
+  {
+    sequelize,
+    tableName: "customer_packages",
+    underscored: true,
+    indexes: [
+      { name: "customer_packages_customer_idx", fields: ["customer_id"] },
+      { name: "customer_packages_status_idx", fields: ["status"] },
+      { name: "customer_packages_expires_at_idx", fields: ["expires_at"] },
+      {
+        name: "customer_packages_customer_status_exp_idx",
+        fields: ["customer_id", "status", "expires_at"],
+      },
+    ],
+  },
 );

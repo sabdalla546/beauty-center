@@ -22,7 +22,6 @@ export const appointmentCheckoutSchema = z.object({
    *
    * Backward-compat (temporary):
    * - discountFils / taxFils: integers in FILS.
-   * - discountCents / taxCents: legacy field names (treated as FILS).
    */
   discountKwd: z.number().min(0).optional().nullable(),
   taxKwd: z.number().min(0).optional().nullable(),
@@ -30,9 +29,6 @@ export const appointmentCheckoutSchema = z.object({
   discountFils: z.number().int().min(0).optional().nullable(),
   taxFils: z.number().int().min(0).optional().nullable(),
 
-  // legacy (will be removed later)
-  discountCents: z.number().int().min(0).optional().nullable(),
-  taxCents: z.number().int().min(0).optional().nullable(),
 
   // optional notes
   notes: z.string().max(2000).optional().nullable(),

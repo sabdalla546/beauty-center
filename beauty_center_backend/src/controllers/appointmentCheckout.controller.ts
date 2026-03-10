@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../errors/AppError";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 import { kwdToFils } from "../utils/money";
 import {
   findActivePackageForService,
@@ -283,25 +283,21 @@ export const checkoutAppointment = asyncHandler(
           ? kwdToFils(parsed.data.discountKwd)
           : parsed.data.discountFils != null
             ? Number(parsed.data.discountFils)
-            : parsed.data.discountCents != null
-              ? Number(parsed.data.discountCents)
-              : 0;
+            : 0;
 
       const taxFilsRaw =
         parsed.data.taxKwd != null
           ? kwdToFils(parsed.data.taxKwd)
           : parsed.data.taxFils != null
             ? Number(parsed.data.taxFils)
-            : parsed.data.taxCents != null
-              ? Number(parsed.data.taxCents)
-              : 0;
+            : 0;
 
       const discountFils = Math.min(Math.max(0, discountFilsRaw), subtotalFils);
       const taxFils = Math.max(0, taxFilsRaw);
       const totalFils = Math.max(0, subtotalFils - discountFils + taxFils);
 
       // 7) Create order + items (NO stock changes here)
-      const initialOrderStatus = totalFils <= 0 ? "completed" : "open";
+      const initialOrderStatus = totalFils <= 0 ? "paid" : "open";
 
       const order = await Order.create(
         {
