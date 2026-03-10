@@ -254,6 +254,8 @@ const loadAppointmentsCalendarRows = async (query: {
       "customerPackageId",
       "sourceType",
       "sourceId",
+      "checkoutOrderId",
+      "checkedOutAt",
       "startAt",
       "endAt",
       "checkedInAt",

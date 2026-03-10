@@ -1,40 +1,31 @@
 import { useTranslation } from "react-i18next";
-import { format } from "date-fns";
 import { enUS, ar } from "date-fns/locale";
 import type { ColumnDef } from "@tanstack/react-table";
 
+import { Badge } from "@/components/ui/badge";
 import AppointmentActionsCell from "@/pages/appointments/_components/AppointmentActionsCell";
 import AppointmentStatusBadge from "@/pages/appointments/_components/AppointmentStatusBadge";
+import {
+  getAppointmentSourceTypeLabel,
+  isAppointmentCheckedOut,
+} from "@/pages/appointments/appointmentWorkflow";
+import {
+  formatAppointmentDateTime,
+  formatAppointmentTimeRange,
+  getAppointmentActualRoomName,
+  getAppointmentActualStaffName,
+  getAppointmentCustomerName,
+  getAppointmentRoomName,
+  getAppointmentServiceName,
+  getAppointmentStaffName,
+} from "@/pages/appointments/appointmentPresentation";
 import type { Appointment } from "../types";
+import { cn } from "@/lib/utils";
 
 interface AppointmentColumnsProps {
   editPermission: string;
   checkoutPermission: string;
 }
-
-const formatDateTime = (value?: string | null, locale = enUS) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return format(date, "MMM d, yyyy h:mm a", { locale });
-};
-
-const getCustomerName = (appointment: Appointment) => {
-  const customer = appointment.customer;
-  if (!customer) return "-";
-  const name = `${customer.firstName ?? ""} ${customer.lastName ?? ""}`.trim();
-  return name || customer.phone || "-";
-};
-
-const getStaffName = (appointment: Appointment) => {
-  const staff = appointment.staff;
-  if (!staff) return "-";
-  if (staff.displayName) return staff.displayName;
-  const user = staff.user || staff.User;
-  if (!user) return "-";
-  const name = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
-  return name || user.email || "-";
-};
 
 export const useAppointmentsColumns = ({
   editPermission,
@@ -45,82 +36,119 @@ export const useAppointmentsColumns = ({
 
   return [
     {
-      accessorKey: "startAt",
+      accessorKey: "schedule",
       header: () => (
         <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
-          {t("appointments.start") || "Start"}
+          {t("appointments.schedule") || "Schedule"}
         </div>
       ),
-      cell: ({ row }) => (
-        <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
-          {formatDateTime(row.original.startAt, dateLocale)}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const appointment = row.original;
+        return (
+          <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
+            <div className="font-medium text-foreground">
+              {formatAppointmentDateTime(appointment.startAt, dateLocale, "MMM d")}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {formatAppointmentTimeRange(
+                appointment.startAt,
+                appointment.endAt,
+                dateLocale,
+              )}
+            </div>
+            {isAppointmentCheckedOut(appointment) ? (
+              <Badge className="mt-2 border-emerald-500/30 bg-emerald-500/10 text-emerald-700">
+                {t("paid") || "Paid"}
+              </Badge>
+            ) : null}
+          </div>
+        );
+      },
+      size: 150,
     },
     {
-      accessorKey: "endAt",
+      accessorKey: "appointment",
       header: () => (
         <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
-          {t("appointments.end") || "End"}
+          {t("appointments.details") || "Appointment details"}
         </div>
       ),
-      cell: ({ row }) => (
-        <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
-          {formatDateTime(row.original.endAt, dateLocale)}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const appointment = row.original;
+        return (
+          <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
+            <div className="font-medium text-foreground">
+              {getAppointmentCustomerName(appointment)}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {getAppointmentServiceName(appointment)}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {appointment.sourceType ? (
+                <Badge variant="outline">
+                  {getAppointmentSourceTypeLabel(t, appointment.sourceType)}
+                </Badge>
+              ) : null}
+              {appointment.customerPackageId ? (
+                <Badge variant="outline">#{appointment.customerPackageId}</Badge>
+              ) : null}
+              {appointment.cancelReason ? (
+                <Badge
+                  className={cn(
+                    "border-rose-500/30 bg-rose-500/10 text-rose-700",
+                  )}
+                >
+                  {t("appointments.cancel_reason") || "Cancel reason"}
+                </Badge>
+              ) : null}
+            </div>
+          </div>
+        );
+      },
+      size: 260,
     },
     {
-      accessorKey: "customer",
+      accessorKey: "assignment",
       header: () => (
         <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
-          {t("appointments.customer") || t("customer") || "Customer"}
+          {t("appointments.assignment") || "Assignment"}
         </div>
       ),
-      cell: ({ row }) => (
-        <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
-          {getCustomerName(row.original)}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "service",
-      header: () => (
-        <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
-          {t("appointments.service") || t("service") || "Service"}
-        </div>
-      ),
-      cell: ({ row }) => (
-        <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
-          {row.original.service?.name || "-"}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "staff",
-      header: () => (
-        <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
-          {t("appointments.staff") || t("staff") || "Staff"}
-        </div>
-      ),
-      cell: ({ row }) => (
-        <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
-          {getStaffName(row.original)}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "room",
-      header: () => (
-        <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
-          {t("appointments.room") || t("room") || "Room"}
-        </div>
-      ),
-      cell: ({ row }) => (
-        <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
-          {row.original.room?.name || "-"}
-        </div>
-      ),
+      cell: ({ row }) => {
+        const appointment = row.original;
+        const actualStaffChanged =
+          appointment.actualStaffId &&
+          appointment.actualStaffId !== appointment.staffId &&
+          getAppointmentActualStaffName(appointment) !== "-";
+        const actualRoomChanged =
+          appointment.actualRoomId &&
+          appointment.actualRoomId !== appointment.roomId &&
+          getAppointmentActualRoomName(appointment) !== "-";
+
+        return (
+          <div className={i18n.language === "ar" ? "text-right" : "text-left"}>
+            <div className="font-medium text-foreground">
+              {getAppointmentStaffName(appointment)}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {getAppointmentRoomName(appointment)}
+            </div>
+            {actualStaffChanged ? (
+              <div className="mt-2 text-xs text-muted-foreground">
+                {t("appointments.actual_staff") || "Actual staff"}:{" "}
+                {getAppointmentActualStaffName(appointment)}
+              </div>
+            ) : null}
+            {actualRoomChanged ? (
+              <div className="text-xs text-muted-foreground">
+                {t("appointments.actual_room") || "Actual room"}:{" "}
+                {getAppointmentActualRoomName(appointment)}
+              </div>
+            ) : null}
+          </div>
+        );
+      },
+      size: 220,
     },
     {
       accessorKey: "status",
@@ -145,8 +173,10 @@ export const useAppointmentsColumns = ({
           appointment={row.original}
           editPermission={editPermission}
           checkoutPermission={checkoutPermission}
+          variant="table"
         />
       ),
+      size: 260,
     },
   ];
 };

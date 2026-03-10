@@ -73,7 +73,14 @@ const buildAppointmentPayload = (
   return payload;
 };
 
-export const useCreateAppointment = () => {
+interface UseCreateAppointmentOptions {
+  navigateOnSuccess?: boolean;
+  onSuccess?: () => void;
+}
+
+export const useCreateAppointment = (
+  options?: UseCreateAppointmentOptions,
+) => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -90,7 +97,10 @@ export const useCreateAppointment = () => {
         description: "Appointment created successfully",
       });
       invalidateAppointmentQueries(queryClient);
-      navigate("/appointments");
+      if (options?.navigateOnSuccess !== false) {
+        navigate("/appointments");
+      }
+      options?.onSuccess?.();
     },
     onError: (error: any) => {
       toast({

@@ -301,13 +301,15 @@ export const checkoutAppointment = asyncHandler(
       const totalFils = Math.max(0, subtotalFils - discountFils + taxFils);
 
       // 7) Create order + items (NO stock changes here)
+      const initialOrderStatus = totalFils <= 0 ? "completed" : "open";
+
       const order = await Order.create(
         {
           externalRef: appointmentExternalRef,
           customerId,
           createdBy: userId,
           shiftSessionId: (openShift as any).id,
-          status: "open",
+          status: initialOrderStatus,
           subtotalFils,
           discountFils,
           taxFils,
@@ -315,7 +317,6 @@ export const checkoutAppointment = asyncHandler(
         } as any,
         { transaction: t },
       );
-
       for (const it of itemsToCreate) {
         it.orderId = Number((order as any).id);
       }

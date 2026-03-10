@@ -3,8 +3,9 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { ClipLoader } from "react-spinners";
-import { CalendarDays, FileText } from "lucide-react";
+import { CalendarDays, ChevronDown, FileText, SlidersHorizontal } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,8 @@ import api from "@/lib/axios";
 import { useStaff } from "@/hooks/staff/useStaff";
 import { useRooms } from "@/hooks/rooms/useRooms";
 import { useAppointmentsColumns } from "@/pages/appointments/_components/appointmentsColumns";
+import AppointmentCalendarBoard from "@/pages/appointments/_components/AppointmentCalendarBoard";
+import AppointmentCreateDrawer from "@/pages/appointments/_components/AppointmentCreateDrawer";
 import {
   APPOINTMENT_STATUS_ORDER,
   getAppointmentStatusLabel,
@@ -69,6 +72,8 @@ const AppointmentsPage: React.FC = () => {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const rowNumberStart = (currentPage - 1) * itemsPerPage + 1;
 
   const viewPermission = "appointments.read";
@@ -147,6 +152,13 @@ const AppointmentsPage: React.FC = () => {
     editPermission,
     checkoutPermission,
   });
+
+  const activeFilterCount = [
+    Boolean(statusFilter),
+    Boolean(staffId),
+    Boolean(roomId),
+    Boolean(searchQuery),
+  ].filter(Boolean).length;
 
   const handleSearchSubmit = () => {
     setSearchQuery(searchTerm);
@@ -242,7 +254,7 @@ const AppointmentsPage: React.FC = () => {
               <Button
                 size="sm"
                 className="bg-primary hover:bg-primary/90 text-primary-foreground px-3 py-2 h-auto text-xs"
-                onClick={() => navigate("/appointments/create")}
+                onClick={() => setCreateDrawerOpen(true)}
               >
                 {t("appointments.create") || "Create appointment"}
               </Button>
@@ -251,192 +263,267 @@ const AppointmentsPage: React.FC = () => {
         />
 
         <Card className="bg-card border-border rounded-xl shadow-sm">
-          <div className="p-6 space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">
-                {t("appointments.filters") || "Filters"}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {t("appointments.filters_hint") ||
-                  "Filter appointments by date range, staff, and room."}
-              </p>
-            </div>
+          <div className="p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="h-4 w-4 text-primary" />
+                  <h2 className="text-lg font-semibold text-foreground">
+                    {t("appointments.filters") || "Filters"}
+                  </h2>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {t("appointments.filters_hint") ||
+                    "Filter appointments by date range, staff, and room."}
+                </p>
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div>
-                <label className="text-xs text-muted-foreground">
-                  {t("appointments.from") || "From"}
-                </label>
-                <Input
-                  type="datetime-local"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">
-                  {t("appointments.to") || "To"}
-                </label>
-                <Input
-                  type="datetime-local"
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">
-                  {t("appointments.status_filter") || "Status"}
-                </label>
-                <select
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={statusFilter}
-                  onChange={(event) => {
-                    setStatusFilter(event.target.value);
-                    setCurrentPage(1);
-                  }}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full border border-border bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground">
+                    {t("appointments.from") || "From"}:{" "}
+                    <span className="text-foreground">{from.replace("T", " ")}</span>
+                  </span>
+                  <span className="rounded-full border border-border bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground">
+                    {t("appointments.to") || "To"}:{" "}
+                    <span className="text-foreground">{to.replace("T", " ")}</span>
+                  </span>
+                  {activeFilterCount ? (
+                    <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                      {activeFilterCount}{" "}
+                      {t("appointments.active_filters") || "active filters"}
+                    </span>
+                  ) : null}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFiltersCollapsed((value) => !value)}
+                  className="gap-2"
                 >
-                  <option value="">
-                    {t("appointments.all_statuses") || "All statuses"}
-                  </option>
-                  {APPOINTMENT_STATUS_ORDER.map((status) => (
-                    <option key={status} value={status}>
-                      {getAppointmentStatusLabel(t, status)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">
-                  {t("appointments.staff") || "Staff"}
-                </label>
-                <SearchableSelect
-                  value={staffId ? String(staffId) : ""}
-                  onValueChange={(value) =>
-                    setStaffId(value ? Number(value) : undefined)
-                  }
-                  placeholder={t("appointments.select_staff") || "Select staff"}
-                  searchPlaceholder={
-                    t("appointments.search_staff") || "Search staff..."
-                  }
-                  onSearch={setStaffSearch}
-                  isLoading={staffQuery.isLoading}
-                  emptyMessage={t("appointments.no_staff") || "No staff found"}
-                  allowClear={!!staffId}
-                  onClear={() => setStaffId(undefined)}
-                >
-                  {staff.length ? (
-                    staff.map((member) => (
-                      <SearchableSelectItem
-                        key={member.id}
-                        value={String(member.id)}
-                      >
-                        <div className="flex flex-col">
-                          <span className="font-medium">
-                            {member.displayName ||
-                              `${member.user?.firstName ?? ""} ${
-                                member.user?.lastName ?? ""
-                              }`.trim() ||
-                              member.user?.email ||
-                              `#${member.id}`}
-                          </span>
-                          {member.user?.email ? (
-                            <span className="text-xs text-muted-foreground">
-                              {member.user.email}
-                            </span>
-                          ) : null}
-                        </div>
-                      </SearchableSelectItem>
-                    ))
-                  ) : (
-                    <SearchableSelectEmpty
-                      message={t("appointments.no_staff") || "No staff found"}
-                    />
-                  )}
-                </SearchableSelect>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">
-                  {t("appointments.room") || "Room"}
-                </label>
-                <SearchableSelect
-                  value={roomId ? String(roomId) : ""}
-                  onValueChange={(value) =>
-                    setRoomId(value ? Number(value) : undefined)
-                  }
-                  placeholder={t("appointments.select_room") || "Select room"}
-                  searchPlaceholder={
-                    t("appointments.search_rooms") || "Search rooms..."
-                  }
-                  onSearch={setRoomSearch}
-                  isLoading={roomsQuery.isLoading}
-                  emptyMessage={t("appointments.no_rooms") || "No rooms found"}
-                  allowClear={!!roomId}
-                  onClear={() => setRoomId(undefined)}
-                >
-                  {rooms.length ? (
-                    rooms.map((room) => (
-                      <SearchableSelectItem
-                        key={room.id}
-                        value={String(room.id)}
-                      >
-                        <div className="flex flex-col">
-                          <span className="font-medium">{room.name}</span>
-                          {room.roomType?.name ? (
-                            <span className="text-xs text-muted-foreground">
-                              {room.roomType.name}
-                            </span>
-                          ) : null}
-                        </div>
-                      </SearchableSelectItem>
-                    ))
-                  ) : (
-                    <SearchableSelectEmpty
-                      message={t("appointments.no_rooms") || "No rooms found"}
-                    />
-                  )}
-                </SearchableSelect>
+                  <span>
+                    {filtersCollapsed
+                      ? t("appointments.show_filters") || "Show filters"
+                      : t("appointments.hide_filters") || "Hide filters"}
+                  </span>
+                  <motion.span
+                    animate={{ rotate: filtersCollapsed ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </motion.span>
+                </Button>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={handleResetToday}>
-                {t("appointments.today") || "Today"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setStatusFilter("");
-                  setStaffId(undefined);
-                  setRoomId(undefined);
-                  setSearchQuery("");
-                  setSearchTerm("");
-                  handleResetToday();
-                }}
-              >
-                {t("reports.reset") || "Reset"}
-              </Button>
-              <Button onClick={() => appointmentsQuery.refetch()}>
-                {t("appointments.refresh") || "Refresh"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleExportPdf}
-                disabled={exportingPdf || appointmentsQuery.isLoading}
-              >
-                <FileText className="w-4 h-4" />
-                {exportingPdf
-                  ? t("appointments.exporting_pdf") ||
-                    t("reports.exporting") ||
-                    "Exporting..."
-                  : t("appointments.export_pdf") ||
-                    t("reports.export_pdf") ||
-                    "Export PDF"}
-              </Button>
-            </div>
+            <AnimatePresence initial={false}>
+              {!filtersCollapsed ? (
+                <motion.div
+                  key="appointments-filters-body"
+                  initial={{ height: 0, opacity: 0, marginTop: 0 }}
+                  animate={{ height: "auto", opacity: 1, marginTop: 16 }}
+                  exit={{ height: 0, opacity: 0, marginTop: 0 }}
+                  transition={{ duration: 0.22, ease: "easeInOut" }}
+                  className="overflow-hidden"
+                >
+                  <div className="space-y-4 border-t border-border/70 pt-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+                      <div>
+                        <label className="text-xs text-muted-foreground">
+                          {t("appointments.from") || "From"}
+                        </label>
+                        <Input
+                          type="datetime-local"
+                          value={from}
+                          onChange={(e) => setFrom(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">
+                          {t("appointments.to") || "To"}
+                        </label>
+                        <Input
+                          type="datetime-local"
+                          value={to}
+                          onChange={(e) => setTo(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">
+                          {t("appointments.status_filter") || "Status"}
+                        </label>
+                        <select
+                          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          value={statusFilter}
+                          onChange={(event) => {
+                            setStatusFilter(event.target.value);
+                            setCurrentPage(1);
+                          }}
+                        >
+                          <option value="">
+                            {t("appointments.all_statuses") || "All statuses"}
+                          </option>
+                          {APPOINTMENT_STATUS_ORDER.map((status) => (
+                            <option key={status} value={status}>
+                              {getAppointmentStatusLabel(t, status)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">
+                          {t("appointments.staff") || "Staff"}
+                        </label>
+                        <SearchableSelect
+                          value={staffId ? String(staffId) : ""}
+                          onValueChange={(value) =>
+                            setStaffId(value ? Number(value) : undefined)
+                          }
+                          placeholder={t("appointments.select_staff") || "Select staff"}
+                          searchPlaceholder={
+                            t("appointments.search_staff") || "Search staff..."
+                          }
+                          onSearch={setStaffSearch}
+                          isLoading={staffQuery.isLoading}
+                          emptyMessage={t("appointments.no_staff") || "No staff found"}
+                          allowClear={!!staffId}
+                          onClear={() => setStaffId(undefined)}
+                        >
+                          {staff.length ? (
+                            staff.map((member) => (
+                              <SearchableSelectItem
+                                key={member.id}
+                                value={String(member.id)}
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-medium">
+                                    {member.displayName ||
+                                      `${member.user?.firstName ?? ""} ${
+                                        member.user?.lastName ?? ""
+                                      }`.trim() ||
+                                      member.user?.email ||
+                                      `#${member.id}`}
+                                  </span>
+                                  {member.user?.email ? (
+                                    <span className="text-xs text-muted-foreground">
+                                      {member.user.email}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </SearchableSelectItem>
+                            ))
+                          ) : (
+                            <SearchableSelectEmpty
+                              message={t("appointments.no_staff") || "No staff found"}
+                            />
+                          )}
+                        </SearchableSelect>
+                      </div>
+                      <div>
+                        <label className="text-xs text-muted-foreground">
+                          {t("appointments.room") || "Room"}
+                        </label>
+                        <SearchableSelect
+                          value={roomId ? String(roomId) : ""}
+                          onValueChange={(value) =>
+                            setRoomId(value ? Number(value) : undefined)
+                          }
+                          placeholder={t("appointments.select_room") || "Select room"}
+                          searchPlaceholder={
+                            t("appointments.search_rooms") || "Search rooms..."
+                          }
+                          onSearch={setRoomSearch}
+                          isLoading={roomsQuery.isLoading}
+                          emptyMessage={t("appointments.no_rooms") || "No rooms found"}
+                          allowClear={!!roomId}
+                          onClear={() => setRoomId(undefined)}
+                        >
+                          {rooms.length ? (
+                            rooms.map((room) => (
+                              <SearchableSelectItem
+                                key={room.id}
+                                value={String(room.id)}
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{room.name}</span>
+                                  {room.roomType?.name ? (
+                                    <span className="text-xs text-muted-foreground">
+                                      {room.roomType.name}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </SearchableSelectItem>
+                            ))
+                          ) : (
+                            <SearchableSelectEmpty
+                              message={t("appointments.no_rooms") || "No rooms found"}
+                            />
+                          )}
+                        </SearchableSelect>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" onClick={handleResetToday}>
+                        {t("appointments.today") || "Today"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setStatusFilter("");
+                          setStaffId(undefined);
+                          setRoomId(undefined);
+                          setSearchQuery("");
+                          setSearchTerm("");
+                          handleResetToday();
+                        }}
+                      >
+                        {t("reports.reset") || "Reset"}
+                      </Button>
+                      <Button onClick={() => appointmentsQuery.refetch()}>
+                        {t("appointments.refresh") || "Refresh"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleExportPdf}
+                        disabled={exportingPdf || appointmentsQuery.isLoading}
+                      >
+                        <FileText className="w-4 h-4" />
+                        {exportingPdf
+                          ? t("appointments.exporting_pdf") ||
+                            t("reports.exporting") ||
+                            "Exporting..."
+                          : t("appointments.export_pdf") ||
+                            t("reports.export_pdf") ||
+                            "Export PDF"}
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
         </Card>
 
+        <AppointmentCreateDrawer
+          open={createDrawerOpen}
+          onOpenChange={setCreateDrawerOpen}
+        />
+
         <div className="px-1 sm:px-0">
+          {appointmentsQuery.isLoading ? null : (
+            <div className="mb-4">
+              <AppointmentCalendarBoard
+                appointments={filteredAppointments}
+                editPermission={editPermission}
+                checkoutPermission={checkoutPermission}
+              />
+            </div>
+          )}
+
           <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
             <TableHeader
               title={t("appointments.list") || "Appointments list"}

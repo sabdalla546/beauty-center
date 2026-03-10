@@ -4,9 +4,9 @@ import { useTranslation } from "react-i18next";
 import {
   Check,
   CircleOff,
+  ChevronDown,
   CreditCard,
   Eye,
-  MoreHorizontal,
   Pencil,
   Play,
   ReceiptText,
@@ -20,6 +20,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -37,6 +38,7 @@ import {
   canCheckoutAppointment,
   canEditAppointment,
   getAvailableAppointmentActions,
+  getPrimaryAppointmentAction,
   isAppointmentCheckedOut,
 } from "@/pages/appointments/appointmentWorkflow";
 import {
@@ -51,12 +53,14 @@ interface AppointmentActionsCellProps {
   appointment: Appointment;
   editPermission: string;
   checkoutPermission: string;
+  variant?: "table" | "card";
 }
 
 const AppointmentActionsCell: React.FC<AppointmentActionsCellProps> = ({
   appointment,
   editPermission,
   checkoutPermission,
+  variant = "table",
 }) => {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
@@ -78,6 +82,7 @@ const AppointmentActionsCell: React.FC<AppointmentActionsCellProps> = ({
   const rescheduleMutation = useRescheduleAppointment(appointment.id);
 
   const availableActions = getAvailableAppointmentActions(appointment);
+  const primaryAction = getPrimaryAppointmentAction(appointment);
   const showEditButton = canManageAppointment && canEditAppointment(appointment);
   const showCheckoutButton =
     canAccessCheckout && canCheckoutAppointment(appointment);
@@ -93,37 +98,146 @@ const AppointmentActionsCell: React.FC<AppointmentActionsCellProps> = ({
     noShowMutation.isPending ||
     rescheduleMutation.isPending;
 
-  const hasMenuActions = availableActions.some((action) =>
-    [
-      "confirm",
-      "check_in",
-      "start_service",
-      "complete",
-      "cancel",
-      "mark_no_show",
-      "reschedule",
-    ].includes(action),
-  );
+  const hasMenuActions =
+    canManageAppointment &&
+    (availableActions.some((action) =>
+      [
+        "confirm",
+        "check_in",
+        "start_service",
+        "complete",
+        "cancel",
+        "mark_no_show",
+        "reschedule",
+      ].includes(action),
+    ) ||
+      showEditButton);
   const canOpenMenu = canManageAppointment && hasMenuActions;
+  const compact = variant === "table";
+
+  const handlePrimaryAction = () => {
+    switch (primaryAction) {
+      case "confirm":
+        confirmMutation.mutate({});
+        return;
+      case "check_in":
+        checkInMutation.mutate({});
+        return;
+      case "start_service":
+        setStartOpen(true);
+        return;
+      case "complete":
+        setCompleteOpen(true);
+        return;
+      case "checkout":
+        navigate(`/appointments/checkout/${appointment.id}`, {
+          state: { appointment },
+        });
+        return;
+      default:
+        return;
+    }
+  };
+
+  const getPrimaryLabel = () => {
+    switch (primaryAction) {
+      case "confirm":
+        return t("appointments.confirm") || "Confirm appointment";
+      case "check_in":
+        return t("appointments.check_in") || "Check in";
+      case "start_service":
+        return t("appointments.start_service") || "Start service";
+      case "complete":
+        return t("appointments.complete") || "Complete";
+      case "checkout":
+        return t("appointments.checkout_now") || "Checkout";
+      default:
+        return "";
+    }
+  };
+
+  const getPrimaryIcon = () => {
+    switch (primaryAction) {
+      case "confirm":
+      case "complete":
+        return <Check className="h-3.5 w-3.5" />;
+      case "check_in":
+        return <UserCheck className="h-3.5 w-3.5" />;
+      case "start_service":
+        return <Play className="h-3.5 w-3.5" />;
+      case "checkout":
+        return <CreditCard className="h-3.5 w-3.5" />;
+      default:
+        return null;
+    }
+  };
+
+  const menuActions = availableActions.filter((action) => action !== primaryAction);
+  const hasWorkflowActions = menuActions.some((action) =>
+    ["confirm", "check_in", "start_service", "complete"].includes(action),
+  );
+  const hasManageActions =
+    showEditButton || menuActions.includes("reschedule") || (compact && showOrderHistoryButton);
+  const hasExceptionActions =
+    menuActions.includes("mark_no_show") || menuActions.includes("cancel");
 
   return (
     <>
-      <div className="flex justify-center gap-2">
+      <div
+        className={
+          compact
+            ? "flex justify-center gap-2"
+            : "flex flex-wrap items-center gap-2"
+        }
+      >
         <Button
           variant="outline"
           size="sm"
-          className="shadow-sm"
+          className={compact ? "shadow-sm" : "shadow-sm"}
           onClick={() => setDetailsOpen(true)}
           title={t("appointments.view_details") || "View details"}
         >
           <Eye className="h-3.5 w-3.5" />
+          {!compact ? <span>{t("appointments.view_details") || "View details"}</span> : null}
         </Button>
 
-        {showEditButton ? (
+        {primaryAction && ((primaryAction !== "checkout" && canManageAppointment) || (primaryAction === "checkout" && showCheckoutButton)) ? (
+          <Button
+            size="sm"
+            className={
+              primaryAction === "checkout"
+                ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                : undefined
+            }
+            onClick={handlePrimaryAction}
+            disabled={actionBusy}
+            title={getPrimaryLabel()}
+          >
+            {getPrimaryIcon()}
+            <span>{getPrimaryLabel()}</span>
+          </Button>
+        ) : null}
+
+        {showOrderHistoryButton && !compact ? (
           <Button
             variant="outline"
             size="sm"
-            className="text-yellow-500 border-yellow-700 hover:bg-yellow-900/20 hover:border-yellow-600 shadow-sm"
+            className="shadow-sm"
+            onClick={() =>
+              navigate(`/pos/history?orderId=${appointment.checkoutOrderId}`)
+            }
+            title={t("appointments.open_order_history") || "Open order history"}
+          >
+            <ReceiptText className="h-3.5 w-3.5" />
+            <span>{t("appointments.open_order_history") || "Open order history"}</span>
+          </Button>
+        ) : null}
+
+        {showEditButton && !canOpenMenu ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-yellow-600 border-yellow-700/40 hover:bg-yellow-500/10 hover:border-yellow-600 shadow-sm"
             onClick={() =>
               navigate(`/appointments/edit/${appointment.id}`, {
                 state: { appointment },
@@ -132,26 +246,13 @@ const AppointmentActionsCell: React.FC<AppointmentActionsCellProps> = ({
             title={t("appointments.edit") || "Edit appointment"}
           >
             <Pencil className="h-3.5 w-3.5" />
+            {!compact ? (
+              <span>{t("appointments.edit") || "Edit appointment"}</span>
+            ) : null}
           </Button>
         ) : null}
 
-        {showCheckoutButton ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-emerald-500 border-emerald-700 hover:bg-emerald-900/20 hover:border-emerald-600 shadow-sm"
-            onClick={() =>
-              navigate(`/appointments/checkout/${appointment.id}`, {
-                state: { appointment },
-              })
-            }
-            title={t("appointments.checkout") || "Appointment checkout"}
-          >
-            <CreditCard className="h-3.5 w-3.5" />
-          </Button>
-        ) : null}
-
-        {showOrderHistoryButton ? (
+        {showOrderHistoryButton && compact ? (
           <Button
             variant="outline"
             size="sm"
@@ -175,51 +276,81 @@ const AppointmentActionsCell: React.FC<AppointmentActionsCellProps> = ({
                 disabled={actionBusy}
                 title={t("appointments.more_actions") || "More actions"}
               >
-                <MoreHorizontal className="h-3.5 w-3.5" />
+                <span>{compact ? t("actions") || "Actions" : t("appointments.more_actions") || "More actions"}</span>
+                <ChevronDown className="h-3.5 w-3.5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {availableActions.includes("confirm") ? (
+            <DropdownMenuContent align="end" className="w-64">
+              {hasWorkflowActions ? (
+                <>
+                  <DropdownMenuLabel>
+                    {t("appointments.action_group_workflow") || "Workflow"}
+                  </DropdownMenuLabel>
+                  {menuActions.includes("confirm") ? (
+                    <DropdownMenuItem
+                      onClick={() => confirmMutation.mutate({})}
+                      disabled={actionBusy}
+                    >
+                      <Check />
+                      {t("appointments.confirm") || "Confirm appointment"}
+                    </DropdownMenuItem>
+                  ) : null}
+
+                  {menuActions.includes("check_in") ? (
+                    <DropdownMenuItem
+                      onClick={() => checkInMutation.mutate({})}
+                      disabled={actionBusy}
+                    >
+                      <UserCheck />
+                      {t("appointments.check_in") || "Check in"}
+                    </DropdownMenuItem>
+                  ) : null}
+
+                  {menuActions.includes("start_service") ? (
+                    <DropdownMenuItem
+                      onClick={() => setStartOpen(true)}
+                      disabled={actionBusy}
+                    >
+                      <Play />
+                      {t("appointments.start_service") || "Start service"}
+                    </DropdownMenuItem>
+                  ) : null}
+
+                  {menuActions.includes("complete") ? (
+                    <DropdownMenuItem
+                      onClick={() => setCompleteOpen(true)}
+                      disabled={actionBusy}
+                    >
+                      <Check />
+                      {t("appointments.complete") || "Complete"}
+                    </DropdownMenuItem>
+                  ) : null}
+                </>
+              ) : null}
+
+              {hasManageActions ? (
+                <>
+                  {hasWorkflowActions ? <DropdownMenuSeparator /> : null}
+                  <DropdownMenuLabel>
+                    {t("appointments.action_group_manage") || "Manage"}
+                  </DropdownMenuLabel>
+                </>
+              ) : null}
+
+              {showEditButton ? (
                 <DropdownMenuItem
-                  onClick={() => confirmMutation.mutate({})}
-                  disabled={actionBusy}
+                  onClick={() =>
+                    navigate(`/appointments/edit/${appointment.id}`, {
+                      state: { appointment },
+                    })
+                  }
                 >
-                  <Check />
-                  {t("appointments.confirm") || "Confirm appointment"}
+                  <Pencil />
+                  {t("appointments.edit") || "Edit appointment"}
                 </DropdownMenuItem>
               ) : null}
 
-              {availableActions.includes("check_in") ? (
-                <DropdownMenuItem
-                  onClick={() => checkInMutation.mutate({})}
-                  disabled={actionBusy}
-                >
-                  <UserCheck />
-                  {t("appointments.check_in") || "Check in"}
-                </DropdownMenuItem>
-              ) : null}
-
-              {availableActions.includes("start_service") ? (
-                <DropdownMenuItem
-                  onClick={() => setStartOpen(true)}
-                  disabled={actionBusy}
-                >
-                  <Play />
-                  {t("appointments.start_service") || "Start service"}
-                </DropdownMenuItem>
-              ) : null}
-
-              {availableActions.includes("complete") ? (
-                <DropdownMenuItem
-                  onClick={() => setCompleteOpen(true)}
-                  disabled={actionBusy}
-                >
-                  <Check />
-                  {t("appointments.complete") || "Complete"}
-                </DropdownMenuItem>
-              ) : null}
-
-              {availableActions.includes("reschedule") ? (
+              {menuActions.includes("reschedule") ? (
                 <DropdownMenuItem
                   onClick={() => setRescheduleOpen(true)}
                   disabled={actionBusy}
@@ -229,7 +360,29 @@ const AppointmentActionsCell: React.FC<AppointmentActionsCellProps> = ({
                 </DropdownMenuItem>
               ) : null}
 
-              {availableActions.includes("mark_no_show") ? (
+              {compact && showOrderHistoryButton ? (
+                <DropdownMenuItem
+                  onClick={() =>
+                    navigate(`/pos/history?orderId=${appointment.checkoutOrderId}`)
+                  }
+                >
+                  <ReceiptText />
+                  {t("appointments.open_order_history") || "Open order history"}
+                </DropdownMenuItem>
+              ) : null}
+
+              {hasExceptionActions ? (
+                <>
+                  {hasWorkflowActions || hasManageActions ? (
+                    <DropdownMenuSeparator />
+                  ) : null}
+                  <DropdownMenuLabel>
+                    {t("appointments.action_group_exception") || "Exceptions"}
+                  </DropdownMenuLabel>
+                </>
+              ) : null}
+
+              {menuActions.includes("mark_no_show") ? (
                 <DropdownMenuItem
                   onClick={() => noShowMutation.mutate({})}
                   disabled={actionBusy}
@@ -239,18 +392,15 @@ const AppointmentActionsCell: React.FC<AppointmentActionsCellProps> = ({
                 </DropdownMenuItem>
               ) : null}
 
-              {availableActions.includes("cancel") ? (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={() => setCancelOpen(true)}
-                    disabled={actionBusy}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <XCircle />
-                    {t("appointments.cancel_title") || "Cancel appointment"}
-                  </DropdownMenuItem>
-                </>
+              {menuActions.includes("cancel") ? (
+                <DropdownMenuItem
+                  onClick={() => setCancelOpen(true)}
+                  disabled={actionBusy}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <XCircle />
+                  {t("appointments.cancel_title") || "Cancel appointment"}
+                </DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -267,6 +417,7 @@ const AppointmentActionsCell: React.FC<AppointmentActionsCellProps> = ({
       />
 
       <AppointmentCancelDialog
+        appointment={appointment}
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         isPending={cancelMutation.isPending}

@@ -69,6 +69,16 @@ const APPOINTMENT_ACTIONS_BY_STATUS: Record<string, AppointmentWorkflowAction[]>
   rescheduled: ["view"],
 };
 
+const APPOINTMENT_PRIMARY_ACTION_BY_STATUS: Partial<
+  Record<string, AppointmentWorkflowAction>
+> = {
+  booked: "confirm",
+  confirmed: "check_in",
+  checked_in: "start_service",
+  in_service: "complete",
+  completed: "checkout",
+};
+
 export const getAppointmentStatusTranslationKey = (status?: string | null) => {
   const normalized = String(status || "").trim().toLowerCase();
   if (!normalized) return "appointments.status_unknown";
@@ -159,4 +169,18 @@ export const getAvailableAppointmentActions = (
   }
 
   return actions;
+};
+
+export const getPrimaryAppointmentAction = (
+  appointment?: Appointment | null,
+) => {
+  const normalized = String(appointment?.status || "")
+    .trim()
+    .toLowerCase();
+  const action = APPOINTMENT_PRIMARY_ACTION_BY_STATUS[normalized];
+  if (!action) return null;
+  if (action === "checkout" && !canCheckoutAppointment(appointment)) {
+    return null;
+  }
+  return action;
 };

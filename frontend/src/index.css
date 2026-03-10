@@ -94,9 +94,18 @@
   * {
     @apply border-border;
   }
+  html,
   body {
     @apply bg-background text-foreground;
     font-family: "Cairo", sans-serif;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    width: 0;
+    height: 0;
   }
 }
 /* Custom scrollbar (dark-ish) */

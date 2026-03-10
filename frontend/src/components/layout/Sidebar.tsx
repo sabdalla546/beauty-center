@@ -476,7 +476,7 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
     <div
       ref={sidebarRef}
       className={[
-        "custom-scrollbar z-50 flex h-full min-h-0 flex-col",
+        "no-scrollbar z-50 flex h-full min-h-0 flex-col",
         "border-border bg-card text-foreground",
         "transition-[width] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
         isOpen ? "w-60" : "w-[4.6rem]",
@@ -512,7 +512,7 @@ const Sidebar = ({ isOpen, className, onNavigate }: SidebarProps) => {
         </div>
       </div>
 
-      <div className="custom-scrollbar flex-1 min-h-0 overflow-y-auto">
+      <div className="no-scrollbar flex-1 min-h-0 overflow-y-auto">
         <nav className="p-2 text-[12px]">
           {navItems.map((i) => renderNavItem(i))}
         </nav>
