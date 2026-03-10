@@ -1,4 +1,8 @@
-import { APPOINTMENT_STATUSES } from "../constants/domain";
+import {
+  APPOINTMENT_RESCHEDULE_ALLOWED_TARGETS,
+  APPOINTMENT_STATUSES,
+  APPOINTMENT_STATUS_UPDATE_ALLOWED,
+} from "../constants/domain";
 import { z } from "zod";
 
 const dateLike = z.union([z.string(), z.date()]);
@@ -142,14 +146,7 @@ export const updateAppointmentSchema = z
   });
 
 export const updateAppointmentStatusSchema = z.object({
-  status: z.enum([
-    "confirmed",
-    "checked_in",
-    "in_service",
-    "completed",
-    "cancelled",
-    "no_show",
-  ]),
+  status: z.enum(APPOINTMENT_STATUS_UPDATE_ALLOWED),
   cancelReason: z.string().max(255).optional().nullable(),
 });
 export const confirmAppointmentSchema = z.object({});
@@ -179,7 +176,7 @@ export const rescheduleAppointmentSchema = z
     staffId: z.number().int().positive().optional().nullable(),
     roomId: z.number().int().positive().optional().nullable(),
     reason: z.string().trim().max(255).optional().nullable(),
-    status: z.enum(["booked", "confirmed"]).optional(),
+    status: z.enum(APPOINTMENT_RESCHEDULE_ALLOWED_TARGETS).optional(),
   })
   .superRefine((val, ctx) => {
     const start = toDate(val.newStartAt);

@@ -134,6 +134,16 @@ export const authController = {
         });
       }
 
+      if (!(user as any).isActive) {
+        return res.status(403).json({
+          error: {
+            message:
+              req.t?.("auth.account_inactive", "Account is inactive") ??
+              "Account is inactive",
+          },
+        });
+      }
+
       const pwHash = (user as any).passwordHash as string;
       const valid = await verifyPassword(password, pwHash);
       if (!valid) {
@@ -263,6 +273,16 @@ export const authController = {
       const user = await User.findByPk(userId, {
         include: [{ model: Role, as: "roles" }],
       });
+
+      if (!user || !(user as any).isActive) {
+        return res.status(401).json({
+          error: {
+            message:
+              req.t?.("auth.unauthorized", "Unauthorized") ?? "Unauthorized",
+          },
+        });
+      }
+
       const roles = (user as any)?.roles?.map((r: any) => r.name) || [];
       const accessToken = signAccessToken({ sub: userId, roles });
 

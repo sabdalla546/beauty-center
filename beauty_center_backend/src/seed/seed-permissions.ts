@@ -101,19 +101,12 @@ const seedPermissionsAndAdmin = async () => {
         passwordHash,
         firstName: ADMIN_FIRST_NAME,
         lastName: ADMIN_LAST_NAME,
+        // legacy column; RBAC remains source of truth
         role: ADMIN_ROLE_NAME,
         isActive: true,
       },
       transaction: t,
     });
-
-    if (!created) {
-      const needsRoleUpdate = (adminUser as any).role !== ADMIN_ROLE_NAME;
-      if (needsRoleUpdate) {
-        (adminUser as any).role = ADMIN_ROLE_NAME;
-        await (adminUser as any).save({ transaction: t });
-      }
-    }
 
     const currentRoles = await (adminUser as any).getRoles({
       transaction: t,

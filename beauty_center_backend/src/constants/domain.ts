@@ -41,3 +41,18 @@ export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 export type ShiftStatus = (typeof SHIFT_STATUSES)[number];
 export type PackageStatus = (typeof PACKAGE_STATUSES)[number];
 export type OrderItemLineType = (typeof ORDER_ITEM_LINE_TYPES)[number];
+
+
+export const APPOINTMENT_STATUS_UPDATE_ALLOWED: AppointmentStatus[] = [
+  "confirmed",
+  "checked_in",
+  "in_service",
+  "completed",
+  "cancelled",
+  "no_show",
+];
+
+export const APPOINTMENT_RESCHEDULE_ALLOWED_TARGETS: AppointmentStatus[] = [
+  "booked",
+  "confirmed",
+];
