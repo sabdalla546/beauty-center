@@ -1,8 +1,9 @@
 // src/controllers/shift.controller.ts
 import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler";
+import { ok, fail } from "../utils/apiResponse";
 import { AppError } from "../errors/AppError";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 import { openShiftSchema, closeShiftSchema } from "../validators/shift";
 import { ShiftSession, Order, Payment, PaymentMethod } from "../models";
@@ -30,12 +31,13 @@ export const openShift = asyncHandler(async (req: Request, res: Response) => {
 
   const parsed = openShiftSchema.safeParse(req.body ?? {});
   if (!parsed.success) {
-    return res.status(400).json({
-      error: {
-        message: req.t?.("shift.invalid_input", "Invalid input"),
-        details: parsed.error.flatten(),
-      },
-    });
+    return fail(
+      res,
+      400,
+      "INVALID_INPUT",
+      req.t?.("shift.invalid_input", "Invalid input") ?? "Invalid input",
+      parsed.error.flatten(),
+    );
   }
 
   // prevent multiple open shifts for same user
@@ -65,7 +67,7 @@ export const openShift = asyncHandler(async (req: Request, res: Response) => {
     notes: parsed.data.notes ?? null,
   });
 
-  res.status(201).json({ data: shift });
+  ok(res, shift, 201);
 });
 
 /**
@@ -82,7 +84,7 @@ export const getMyOpenShift = asyncHandler(
       order: [["id", "DESC"]],
     });
 
-    res.json({ data: shift }); // null if none
+    ok(res, shift); // null if none
   },
 );
 
@@ -101,13 +103,13 @@ export const closeShift = asyncHandler(async (req: Request, res: Response) => {
 
   const parsed = closeShiftSchema.safeParse(req.body ?? {});
   if (!parsed.success) {
-    return res.status(400).json({
-      error: {
-        message:
-          req.t?.("shift.invalid_input", "Invalid input") ?? "Invalid input",
-        details: parsed.error.flatten(),
-      },
-    });
+    return fail(
+      res,
+      400,
+      "INVALID_INPUT",
+      req.t?.("shift.invalid_input", "Invalid input") ?? "Invalid input",
+      parsed.error.flatten(),
+    );
   }
 
   // UI sends KWD, server converts to FILS
@@ -203,5 +205,5 @@ export const closeShift = asyncHandler(async (req: Request, res: Response) => {
     };
   });
 
-  res.json({ status: "success", data: result });
+  ok(res, result);
 });

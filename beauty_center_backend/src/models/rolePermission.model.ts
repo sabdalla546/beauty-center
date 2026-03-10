@@ -1,6 +1,6 @@
 // src/models/RolePermission.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 export class RolePermission extends Model {}
 RolePermission.init(

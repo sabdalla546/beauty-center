@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../errors/AppError";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 import { Op, WhereOptions, fn, literal } from "sequelize";
 import { filsToKwd, kwdToFils } from "../utils/money";
+import { ORDER_PAYABLE_STATUSES } from "../constants/domain";
 import { createPosOrderSchema, payPosOrderSchema } from "../validators/pos";
 import { listPosOrdersSchema } from "../validators/posOrders";
 // ✅ Packages: auto-deduction + usage ledger
@@ -650,8 +651,16 @@ export const createPosOrder = asyncHandler(
           totalPriceFils = unitPriceFils * qty;
         }
 
+        const normalizedStaffId = i.lineType === "service" ? (i.staffId ?? null) : null;
+        const normalizedRoomId = i.lineType === "service" ? (i.roomId ?? null) : null;
+        const normalizedAppointmentId =
+          i.lineType === "package" ? null : (i.appointmentId ?? null);
+
         itemsFils.push({
           ...i,
+          staffId: normalizedStaffId,
+          roomId: normalizedRoomId,
+          appointmentId: normalizedAppointmentId,
           quantity: qty,
           unitPriceFils,
           totalPriceFils,
@@ -914,7 +923,7 @@ export const payPosOrder = asyncHandler(async (req: Request, res: Response) => {
       };
     }
 
-    if (!["open", "partially_paid"].includes(String(order.status))) {
+    if (!ORDER_PAYABLE_STATUSES.includes(String(order.status) as any)) {
       throw new AppError("Order is not payable", 400, "pos.not_payable", {
         status: order.status,
       });
@@ -1239,7 +1248,7 @@ export const cancelOrderAndRefundPaidAmount = asyncHandler(
         );
 
       // ✅ Only allow cancel while NOT paid (open / partially_paid)
-      if (!["open", "partially_paid"].includes(String(order.status))) {
+      if (!ORDER_PAYABLE_STATUSES.includes(String(order.status) as any)) {
         throw new AppError(
           req.t?.("pos.order_not_cancelable", "Order is not cancelable") ??
             "Order is not cancelable",
