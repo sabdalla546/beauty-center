@@ -2,8 +2,9 @@
 import { Request, Response } from "express";
 import { Transaction } from "sequelize";
 import { registerSchema, loginSchema } from "../validators/auth";
-import { User } from "../models/user.model";
 import { Role } from "../models/role.model";
+import { User } from "../models/user.model";
+
 import { RefreshToken as RefreshTokenModel } from "../models/refreshToken.model"; // model (value)
 import type { RefreshToken as RefreshTokenInstance } from "../models/refreshToken.model"; // model (type)
 import { hashPassword, verifyPassword } from "../utils/password";
