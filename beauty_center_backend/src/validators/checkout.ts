@@ -11,8 +11,8 @@ export const checkoutAppointmentSchema = z.object({
     .optional()
     .default([]),
 
-  discountCents: z.number().int().min(0).optional().default(0),
-  taxCents: z.number().int().min(0).optional().default(0),
+  discountFils: z.number().int().min(0).optional().default(0),
+  taxFils: z.number().int().min(0).optional().default(0),
 
   notes: z.string().max(500).optional().nullable(),
 });

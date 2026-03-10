@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { Op, Transaction } from "sequelize";
 import { AppError } from "../errors/AppError";
 import { asyncHandler } from "../middlewares/asyncHandler";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 import {
   createAppointmentSchema,
@@ -31,6 +31,12 @@ import {
   toDate,
 } from "../services/appointmentConflicts.service";
 import { sendReportResponse } from "../utils/reportExport";
+import { type AppointmentStatus } from "../constants/domain";
+import {
+  buildAppointmentStatusPatch,
+  canTransitionAppointmentStatus,
+  isTerminalAppointmentStatus,
+} from "../services/appointmentWorkflow.service";
 const invalidAppointmentInput = (
   req: Request,
   res: Response,
@@ -44,160 +50,11 @@ const invalidAppointmentInput = (
       details,
     },
   });
-const APPOINTMENT_STATUS_FLOW: Record<string, string[]> = {
-  booked: ["confirmed", "checked_in", "cancelled", "no_show"],
-  confirmed: ["checked_in", "cancelled", "no_show"],
-  checked_in: ["in_service", "cancelled"],
-  in_service: ["completed", "cancelled"],
-  completed: [],
-  cancelled: [],
-  no_show: [],
-  rescheduled: [],
-};
 
-const canTransitionAppointmentStatus = (from: string, to: string): boolean => {
-  if (from === to) return true;
-  const allowed = APPOINTMENT_STATUS_FLOW[from] ?? [];
-  return allowed.includes(to);
-};
-
-const isTerminalAppointmentStatus = (status: string) =>
-  ["completed", "cancelled", "no_show", "rescheduled"].includes(status);
-
-const now = () => new Date();
-
-const clearExecutionAndClosureFieldsForStatus = (status: string) => {
-  // used when setting terminal/transition states in a consistent way
-  switch (status) {
-    case "booked":
-    case "confirmed":
-      return {
-        checkedInAt: null,
-        startedAt: null,
-        completedAt: null,
-        completedBy: null,
-        cancelledAt: null,
-        cancelledBy: null,
-        cancelReason: null,
-        noShowMarkedAt: null,
-        noShowMarkedBy: null,
-      };
-    case "checked_in":
-      return {
-        startedAt: null,
-        completedAt: null,
-        completedBy: null,
-        cancelledAt: null,
-        cancelledBy: null,
-        cancelReason: null,
-        noShowMarkedAt: null,
-        noShowMarkedBy: null,
-      };
-    case "in_service":
-      return {
-        completedAt: null,
-        completedBy: null,
-        cancelledAt: null,
-        cancelledBy: null,
-        cancelReason: null,
-        noShowMarkedAt: null,
-        noShowMarkedBy: null,
-      };
-    case "completed":
-      return {
-        cancelledAt: null,
-        cancelledBy: null,
-        cancelReason: null,
-        noShowMarkedAt: null,
-        noShowMarkedBy: null,
-      };
-    case "cancelled":
-      return {
-        noShowMarkedAt: null,
-        noShowMarkedBy: null,
-        completedAt: null,
-        completedBy: null,
-      };
-    case "no_show":
-      return {
-        cancelledAt: null,
-        cancelledBy: null,
-        cancelReason: null,
-        completedAt: null,
-        completedBy: null,
-        startedAt: null,
-      };
-    case "rescheduled":
-      return {
-        noShowMarkedAt: null,
-        noShowMarkedBy: null,
-      };
-    default:
-      return {};
-  }
-};
-
-const buildStatusSideEffects = ({
-  currentStatus,
-  nextStatus,
-  userId,
-  body,
-  row,
-}: {
-  currentStatus: string;
-  nextStatus: string;
-  userId: number | null;
-  body?: any;
-  row?: any;
-}) => {
-  const effects: Record<string, any> = {
-    status: nextStatus,
-    ...clearExecutionAndClosureFieldsForStatus(nextStatus),
-  };
-
-  if (nextStatus === "checked_in") {
-    effects.checkedInAt = row?.checkedInAt ?? now();
-  }
-
-  if (nextStatus === "in_service") {
-    effects.checkedInAt = row?.checkedInAt ?? now();
-    effects.startedAt = row?.startedAt ?? now();
-
-    if (body?.actualStaffId !== undefined) {
-      effects.actualStaffId = body.actualStaffId ?? null;
-    }
-    if (body?.actualRoomId !== undefined) {
-      effects.actualRoomId = body.actualRoomId ?? null;
-    }
-  }
-
-  if (nextStatus === "completed") {
-    effects.checkedInAt = row?.checkedInAt ?? now();
-    effects.startedAt = row?.startedAt ?? now();
-    effects.completedAt = row?.completedAt ?? now();
-    effects.completedBy = userId ?? null;
-
-    if (body?.actualStaffId !== undefined) {
-      effects.actualStaffId = body.actualStaffId ?? null;
-    }
-    if (body?.actualRoomId !== undefined) {
-      effects.actualRoomId = body.actualRoomId ?? null;
-    }
-  }
-
-  if (nextStatus === "cancelled") {
-    effects.cancelledAt = now();
-    effects.cancelledBy = userId ?? null;
-    effects.cancelReason = body?.cancelReason ?? null;
-  }
-
-  if (nextStatus === "no_show") {
-    effects.noShowMarkedAt = now();
-    effects.noShowMarkedBy = userId ?? null;
-  }
-
-  return effects;
-};
+const RESCHEDULE_ALLOWED_SOURCE_STATUSES: AppointmentStatus[] = [
+  "booked",
+  "confirmed",
+];
 
 const buildCalendarWhere = (query: {
   from?: string;
@@ -390,11 +247,11 @@ const transitionAppointmentStatus = async ({
 }: {
   req: Request;
   row: any;
-  nextStatus: string;
+  nextStatus: AppointmentStatus;
   transaction: Transaction;
   body?: any;
 }) => {
-  const currentStatus = String(row.status || "booked");
+  const currentStatus = String(row.status || "booked") as AppointmentStatus;
 
   if (!canTransitionAppointmentStatus(currentStatus, nextStatus)) {
     throw new AppError(
@@ -428,8 +285,7 @@ const transitionAppointmentStatus = async ({
 
   const userId = getUserId(req);
 
-  const patch = buildStatusSideEffects({
-    currentStatus,
+  const patch = buildAppointmentStatusPatch({
     nextStatus,
     userId,
     body,
@@ -1055,17 +911,113 @@ export const rescheduleAppointment = asyncHandler(
 
     try {
       const row = await loadAppointmentForStatusChange(id, t);
+      const currentStatus = String(row.status || "booked") as AppointmentStatus;
 
-      await transitionAppointmentStatus({
-        req,
-        row,
-        nextStatus: "rescheduled",
+      if (!RESCHEDULE_ALLOWED_SOURCE_STATUSES.includes(currentStatus)) {
+        throw new AppError(
+          req.t?.(
+            "appointment.invalid_reschedule_source_status",
+            "Only booked or confirmed appointments can be rescheduled",
+          ) ?? "Only booked or confirmed appointments can be rescheduled",
+          400,
+          "appointment.invalid_reschedule_source_status",
+          {
+            status: currentStatus,
+          },
+        );
+      }
+
+      const serviceId = Number((row as any).serviceId);
+      const service = await Service.findByPk(serviceId, {
         transaction: t,
-        body: parsed.data,
+        lock: t.LOCK.UPDATE,
       });
 
+      if (!service) {
+        throw new AppError(
+          req.t?.("service.not_found", "Service not found") ??
+            "Service not found",
+          404,
+          "service.not_found",
+          { serviceId },
+        );
+      }
+
+      const newStartAt = toDate(
+        parsed.data.newStartAt,
+        "appointment.invalid_date",
+      );
+      const newStaffId =
+        parsed.data.staffId !== undefined
+          ? parsed.data.staffId ?? null
+          : ((row as any).staffId ?? null);
+      const newRoomId =
+        parsed.data.roomId !== undefined
+          ? parsed.data.roomId ?? null
+          : ((row as any).roomId ?? null);
+      const nextStatus = (parsed.data.status ??
+        currentStatus) as AppointmentStatus;
+
+      let newEndAt: Date;
+      if (parsed.data.newEndAt) {
+        newEndAt = toDate(parsed.data.newEndAt, "appointment.invalid_date");
+      } else {
+        const durationMinutes = Number((service as any).durationMinutes ?? 0);
+        if (!durationMinutes || durationMinutes <= 0) {
+          throw new AppError(
+            "Service duration invalid",
+            400,
+            "service.duration_invalid",
+          );
+        }
+        newEndAt = new Date(newStartAt.getTime() + durationMinutes * 60_000);
+      }
+
+      await ensureAppointmentConstraints({
+        startAt: newStartAt,
+        endAt: newEndAt,
+        serviceId,
+        roomId: newRoomId,
+        staffId: newStaffId,
+        excludeAppointmentId: Number((row as any).id),
+        t,
+      });
+
+      const newAppointment = await Appointment.create(
+        {
+          customerId: Number((row as any).customerId),
+          serviceId,
+          staffId: newStaffId,
+          roomId: newRoomId,
+          startAt: newStartAt,
+          endAt: newEndAt,
+          sourceType: (row as any).sourceType ?? "single_service",
+          sourceId: (row as any).sourceId ?? null,
+          customerPackageId: (row as any).customerPackageId ?? null,
+          status: nextStatus,
+          notes: (row as any).notes ?? null,
+          internalNotes: (row as any).internalNotes ?? null,
+          rescheduledFromAppointmentId: Number((row as any).id),
+        } as any,
+        { transaction: t },
+      );
+
+      const previousAppointmentPatch = buildAppointmentStatusPatch({
+        nextStatus: "rescheduled",
+        userId: getUserId(req),
+        body: parsed.data,
+        row,
+      });
+
+      await row.update(previousAppointmentPatch, { transaction: t });
+
       await t.commit();
-      return res.json({ data: row });
+      return res.json({
+        data: {
+          previousAppointment: row,
+          newAppointment,
+        },
+      });
     } catch (e) {
       await t.rollback();
       throw e;

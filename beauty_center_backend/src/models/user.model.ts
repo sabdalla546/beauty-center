@@ -1,6 +1,6 @@
 // src/models/User.ts
 import { CreationOptional, DataTypes, Model, Optional } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 interface UserAttrs {
   id?: number;
@@ -8,7 +8,8 @@ interface UserAttrs {
   passwordHash: string;
   firstName?: string | null;
   lastName?: string | null;
-  role: string;
+  // Legacy column: RBAC join tables are the single source of truth for authorization.
+  role?: string;
   isActive?: boolean;
   createdBy?: number | null;
   updatedBy?: number | null;
@@ -31,7 +32,8 @@ export class User
   public passwordHash!: string;
   public firstName!: string | null;
   public lastName!: string | null;
-  public role!: string;
+  // Legacy/debug-only field; do not use for authorization decisions.
+  declare role?: string;
   public isActive!: boolean;
   declare createdBy?: number | null;
   declare updatedBy?: number | null;

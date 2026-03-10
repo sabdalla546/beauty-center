@@ -2,6 +2,7 @@
 import express from "express";
 import { authenticate } from "../middlewares/authenticate";
 import { requirePermission } from "../middlewares/authorize";
+import { asyncHandler } from "../middlewares/asyncHandler";
 import { customerController } from "../controllers/customer.controller";
 
 const router = express.Router();
@@ -11,7 +12,7 @@ router.get(
   "/",
   authenticate,
   requirePermission("customers.read"),
-  customerController.listCustomers,
+  asyncHandler(customerController.listCustomers),
 );
 
 // Create customer
@@ -19,7 +20,7 @@ router.post(
   "/",
   authenticate,
   requirePermission("customers.create"),
-  customerController.createCustomer,
+  asyncHandler(customerController.createCustomer),
 );
 
 // Get single customer
@@ -27,7 +28,7 @@ router.get(
   "/:id",
   authenticate,
   requirePermission("customers.read"),
-  customerController.getCustomer,
+  asyncHandler(customerController.getCustomer),
 );
 
 // Update
@@ -35,7 +36,7 @@ router.put(
   "/:id",
   authenticate,
   requirePermission("customers.update"),
-  customerController.updateCustomer,
+  asyncHandler(customerController.updateCustomer),
 );
 
 // Delete (soft if paranoid)
@@ -43,7 +44,7 @@ router.delete(
   "/:id",
   authenticate,
   requirePermission("customers.delete"),
-  customerController.deleteCustomer,
+  asyncHandler(customerController.deleteCustomer),
 );
 
 // Restore (if model supports restore)
@@ -51,7 +52,7 @@ router.post(
   "/:id/restore",
   authenticate,
   requirePermission("customers.restore"),
-  customerController.restoreCustomer,
+  asyncHandler(customerController.restoreCustomer),
 );
 
 export default router;

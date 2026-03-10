@@ -2,8 +2,9 @@
 import { Request, Response } from "express";
 import { Transaction } from "sequelize";
 import { registerSchema, loginSchema } from "../validators/auth";
-import { User } from "../models/user.model";
 import { Role } from "../models/role.model";
+import { User } from "../models/user.model";
+
 import { RefreshToken as RefreshTokenModel } from "../models/refreshToken.model"; // model (value)
 import type { RefreshToken as RefreshTokenInstance } from "../models/refreshToken.model"; // model (type)
 import { hashPassword, verifyPassword } from "../utils/password";
@@ -130,6 +131,16 @@ export const authController = {
             message:
               req.t?.("auth.invalid_credentials", "Invalid credentials") ??
               "Invalid credentials",
+          },
+        });
+      }
+
+      if (!(user as any).isActive) {
+        return res.status(403).json({
+          error: {
+            message:
+              req.t?.("auth.account_inactive", "Account is inactive") ??
+              "Account is inactive",
           },
         });
       }
@@ -263,6 +274,16 @@ export const authController = {
       const user = await User.findByPk(userId, {
         include: [{ model: Role, as: "roles" }],
       });
+
+      if (!user || !(user as any).isActive) {
+        return res.status(401).json({
+          error: {
+            message:
+              req.t?.("auth.unauthorized", "Unauthorized") ?? "Unauthorized",
+          },
+        });
+      }
+
       const roles = (user as any)?.roles?.map((r: any) => r.name) || [];
       const accessToken = signAccessToken({ sub: userId, roles });
 

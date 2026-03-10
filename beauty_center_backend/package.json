@@ -41,7 +41,10 @@
       "ts-jest": {
         "tsconfig": "tsconfig.test.json"
       }
-    }
+    },
+    "testPathIgnorePatterns": [
+      "<rootDir>/dist/"
+    ]
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",

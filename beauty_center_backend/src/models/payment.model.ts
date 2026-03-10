@@ -1,6 +1,7 @@
 // src/models/payment.model.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
+import { PAYMENT_STATUSES } from "../constants/domain";
 
 export class Payment extends Model {
   declare id: number;
@@ -42,7 +43,7 @@ Payment.init(
     },
 
     status: {
-      type: DataTypes.STRING(32),
+      type: DataTypes.ENUM(...PAYMENT_STATUSES),
       allowNull: false,
       defaultValue: "completed",
     },
@@ -56,5 +57,12 @@ Payment.init(
     sequelize,
     tableName: "payments",
     timestamps: true,
+    indexes: [
+      { name: "payments_order_idx", fields: ["orderId"] },
+      { name: "payments_shift_session_idx", fields: ["shiftSessionId"] },
+      { name: "payments_method_idx", fields: ["methodId"] },
+      { name: "payments_status_idx", fields: ["status"] },
+      { name: "payments_created_at_idx", fields: ["createdAt"] },
+    ],
   },
 );

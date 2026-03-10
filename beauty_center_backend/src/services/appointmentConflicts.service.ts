@@ -1,10 +1,15 @@
 // src/services/appointmentConflicts.service.ts
 import { Op, Transaction } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 import { Appointment, Room, Service, Staff } from "../models";
 import { AppError } from "../errors/AppError";
 
-export const INACTIVE_FOR_CONFLICT = ["cancelled", "no_show", "completed"];
+export const INACTIVE_FOR_CONFLICT = [
+  "cancelled",
+  "no_show",
+  "completed",
+  "rescheduled",
+];
 
 export function toDate(v: any, code = "validation.invalid_date"): Date {
   if (v instanceof Date) return v;

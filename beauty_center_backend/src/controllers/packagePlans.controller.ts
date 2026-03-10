@@ -50,7 +50,7 @@ export const listPlans = asyncHandler(async (req: Request, res: Response) => {
 
   const data = rows.map((r: any) => {
     const json = r.toJSON?.() ?? r;
-    const priceFils = Number(json.priceCents || 0); // ✅ stored in DB
+    const priceFils = Number(json.priceFils || 0);
     return {
       ...json,
       priceFils,
@@ -106,8 +106,8 @@ export const createPlan = asyncHandler(async (req: Request, res: Response) => {
   const created = await PackagePlan.create({
     name,
     description,
-    // ✅ store as FILS in priceCents column (temporary naming)
-    priceCents: priceFils,
+    // ✅ store as FILS
+    priceFils,
     sessionsCount,
     validDays,
     serviceId,
@@ -118,8 +118,8 @@ export const createPlan = asyncHandler(async (req: Request, res: Response) => {
   res.status(201).json({
     data: {
       ...json,
-      priceFils: Number(json.priceCents || 0),
-      priceKwd: filsToKwdNumber(Number(json.priceCents || 0)),
+      priceFils: Number(json.priceFils || 0),
+      priceKwd: filsToKwdNumber(Number(json.priceFils || 0)),
     },
   });
 });
@@ -191,7 +191,7 @@ export const updatePlan = asyncHandler(async (req: Request, res: Response) => {
     const priceFils = kwdToFils(toNum(req.body.priceKwd));
     if (priceFils <= 0)
       throw new AppError("priceKwd must be > 0", 400, "packages.price_invalid");
-    patch.priceCents = priceFils; // stored as FILS
+    patch.priceFils = priceFils;
   }
 
   await plan.update(patch as any);
@@ -200,8 +200,8 @@ export const updatePlan = asyncHandler(async (req: Request, res: Response) => {
   res.json({
     data: {
       ...json,
-      priceFils: Number(json.priceCents || 0),
-      priceKwd: filsToKwdNumber(Number(json.priceCents || 0)),
+      priceFils: Number(json.priceFils || 0),
+      priceKwd: filsToKwdNumber(Number(json.priceFils || 0)),
     },
   });
 });
@@ -225,8 +225,8 @@ export const togglePlanActive = asyncHandler(
     res.json({
       data: {
         ...json,
-        priceFils: Number(json.priceCents || 0),
-        priceKwd: filsToKwdNumber(Number(json.priceCents || 0)),
+        priceFils: Number(json.priceFils || 0),
+        priceKwd: filsToKwdNumber(Number(json.priceFils || 0)),
       },
     });
   },
