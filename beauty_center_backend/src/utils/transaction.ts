@@ -1,6 +1,6 @@
 // src/utils/transaction.ts
 import { Transaction } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 /**
  * Run function inside a managed transaction.
