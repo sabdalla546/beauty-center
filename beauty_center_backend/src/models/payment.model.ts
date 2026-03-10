@@ -1,6 +1,7 @@
 // src/models/payment.model.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
+import { PAYMENT_STATUSES } from "../constants/domain";
 
 export class Payment extends Model {
   declare id: number;
@@ -42,7 +43,7 @@ Payment.init(
     },
 
     status: {
-      type: DataTypes.STRING(32),
+      type: DataTypes.ENUM(...PAYMENT_STATUSES),
       allowNull: false,
       defaultValue: "completed",
     },

@@ -1,6 +1,7 @@
 // src/models/OrderItem.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
+import { ORDER_ITEM_LINE_TYPES } from "../constants/domain";
 
 export class OrderItem extends Model {
   declare id: number;
@@ -36,7 +37,7 @@ OrderItem.init(
     orderId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
 
     // keep string but we will enforce values in app
-    lineType: { type: DataTypes.STRING(16), allowNull: false },
+    lineType: { type: DataTypes.ENUM(...ORDER_ITEM_LINE_TYPES), allowNull: false },
 
     referenceId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true },
     description: { type: DataTypes.STRING(256), allowNull: true },

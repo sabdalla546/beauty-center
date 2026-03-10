@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { Op, Transaction } from "sequelize";
 import { AppError } from "../errors/AppError";
 import { asyncHandler } from "../middlewares/asyncHandler";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 import {
   createAppointmentSchema,
@@ -31,6 +31,7 @@ import {
   toDate,
 } from "../services/appointmentConflicts.service";
 import { sendReportResponse } from "../utils/reportExport";
+import { type AppointmentStatus } from "../constants/domain";
 const invalidAppointmentInput = (
   req: Request,
   res: Response,
@@ -44,7 +45,7 @@ const invalidAppointmentInput = (
       details,
     },
   });
-const APPOINTMENT_STATUS_FLOW: Record<string, string[]> = {
+const APPOINTMENT_STATUS_FLOW: Record<AppointmentStatus, AppointmentStatus[]> = {
   booked: ["confirmed", "checked_in", "cancelled", "no_show"],
   confirmed: ["checked_in", "cancelled", "no_show"],
   checked_in: ["in_service", "cancelled"],
@@ -55,18 +56,28 @@ const APPOINTMENT_STATUS_FLOW: Record<string, string[]> = {
   rescheduled: [],
 };
 
-const canTransitionAppointmentStatus = (from: string, to: string): boolean => {
+const canTransitionAppointmentStatus = (
+  from: AppointmentStatus,
+  to: AppointmentStatus,
+): boolean => {
   if (from === to) return true;
   const allowed = APPOINTMENT_STATUS_FLOW[from] ?? [];
   return allowed.includes(to);
 };
 
+const TERMINAL_APPOINTMENT_STATUSES: AppointmentStatus[] = [
+  "completed",
+  "cancelled",
+  "no_show",
+  "rescheduled",
+];
+
 const isTerminalAppointmentStatus = (status: string) =>
-  ["completed", "cancelled", "no_show", "rescheduled"].includes(status);
+  TERMINAL_APPOINTMENT_STATUSES.includes(status as AppointmentStatus);
 
 const now = () => new Date();
 
-const clearExecutionAndClosureFieldsForStatus = (status: string) => {
+const clearExecutionAndClosureFieldsForStatus = (status: AppointmentStatus) => {
   // used when setting terminal/transition states in a consistent way
   switch (status) {
     case "booked":
@@ -145,7 +156,7 @@ const buildStatusSideEffects = ({
   row,
 }: {
   currentStatus: string;
-  nextStatus: string;
+  nextStatus: AppointmentStatus;
   userId: number | null;
   body?: any;
   row?: any;
@@ -390,11 +401,11 @@ const transitionAppointmentStatus = async ({
 }: {
   req: Request;
   row: any;
-  nextStatus: string;
+  nextStatus: AppointmentStatus;
   transaction: Transaction;
   body?: any;
 }) => {
-  const currentStatus = String(row.status || "booked");
+  const currentStatus = String(row.status || "booked") as AppointmentStatus;
 
   if (!canTransitionAppointmentStatus(currentStatus, nextStatus)) {
     throw new AppError(

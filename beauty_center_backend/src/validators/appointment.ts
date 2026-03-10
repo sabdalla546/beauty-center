@@ -1,3 +1,4 @@
+import { APPOINTMENT_STATUSES } from "../constants/domain";
 import { z } from "zod";
 
 const dateLike = z.union([z.string(), z.date()]);
@@ -10,16 +11,7 @@ const toDate = (v: unknown): Date => {
 const isValidDate = (d: Date) =>
   d instanceof Date && !Number.isNaN(d.getTime());
 
-export const appointmentStatusEnum = z.enum([
-  "booked",
-  "confirmed",
-  "checked_in",
-  "in_service",
-  "completed",
-  "cancelled",
-  "no_show",
-  "rescheduled",
-]);
+export const appointmentStatusEnum = z.enum(APPOINTMENT_STATUSES);
 
 export const appointmentSourceTypeEnum = z.enum([
   "single_service",
