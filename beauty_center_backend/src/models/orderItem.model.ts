@@ -1,6 +1,7 @@
 // src/models/OrderItem.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
+import { ORDER_ITEM_LINE_TYPES } from "../constants/domain";
 
 export class OrderItem extends Model {
   declare id: number;
@@ -36,7 +37,7 @@ OrderItem.init(
     orderId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: false },
 
     // keep string but we will enforce values in app
-    lineType: { type: DataTypes.STRING(16), allowNull: false },
+    lineType: { type: DataTypes.ENUM(...ORDER_ITEM_LINE_TYPES), allowNull: false },
 
     referenceId: { type: DataTypes.BIGINT.UNSIGNED, allowNull: true },
     description: { type: DataTypes.STRING(256), allowNull: true },
@@ -58,5 +59,19 @@ OrderItem.init(
     coveredQty: { type: DataTypes.INTEGER, allowNull: true },
     uncoveredQty: { type: DataTypes.INTEGER, allowNull: true },
   },
-  { sequelize, tableName: "order_items", timestamps: false },
+  {
+    sequelize,
+    tableName: "order_items",
+    timestamps: false,
+    indexes: [
+      { name: "order_items_order_idx", fields: ["orderId"] },
+      { name: "order_items_appointment_idx", fields: ["appointmentId"] },
+      { name: "order_items_line_type_idx", fields: ["lineType"] },
+      { name: "order_items_reference_idx", fields: ["referenceId"] },
+      {
+        name: "order_items_line_type_reference_idx",
+        fields: ["lineType", "referenceId"],
+      },
+    ],
+  },
 );

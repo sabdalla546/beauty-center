@@ -3,7 +3,6 @@ import { Router } from "express";
 import { authenticate } from "../middlewares/authenticate";
 import { requirePermission } from "../middlewares/authorize";
 import { asyncHandler } from "../middlewares/asyncHandler";
-
 import {
   getAppointmentsCalendar,
   createAppointment,
@@ -46,7 +45,7 @@ router.post(
 router.post(
   "/:id/checkout",
   requirePermission("pos.orders.create"),
-  checkoutAppointment,
+  asyncHandler(checkoutAppointment),
 );
 
 router.put(

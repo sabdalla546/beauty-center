@@ -1,6 +1,7 @@
 // src/routes/authRoutes.ts
 import express from "express";
 import { authController } from "../controllers/auth.controller";
+import { asyncHandler } from "../middlewares/asyncHandler";
 
 const router = express.Router();
 
@@ -12,9 +13,9 @@ const router = express.Router();
  * POST /auth/logout
  */
 
-router.post("/register", authController.register);
-router.post("/login", authController.login);
-router.post("/refresh", authController.refresh);
-router.post("/logout", authController.logout);
+router.post("/register", asyncHandler(authController.register));
+router.post("/login", asyncHandler(authController.login));
+router.post("/refresh", asyncHandler(authController.refresh));
+router.post("/logout", asyncHandler(authController.logout));
 
 export default router;

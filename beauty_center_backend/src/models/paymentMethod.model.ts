@@ -1,6 +1,6 @@
 // src/models/paymentMethod.model.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 export class PaymentMethod extends Model {
   declare id: number;
