@@ -50,6 +50,12 @@ const invalidAppointmentInput = (
       details,
     },
   });
+
+const RESCHEDULE_ALLOWED_SOURCE_STATUSES: AppointmentStatus[] = [
+  "booked",
+  "confirmed",
+];
+
 const buildCalendarWhere = (query: {
   from?: string;
   to?: string;
@@ -905,17 +911,113 @@ export const rescheduleAppointment = asyncHandler(
 
     try {
       const row = await loadAppointmentForStatusChange(id, t);
+      const currentStatus = String(row.status || "booked") as AppointmentStatus;
 
-      await transitionAppointmentStatus({
-        req,
-        row,
-        nextStatus: "rescheduled",
+      if (!RESCHEDULE_ALLOWED_SOURCE_STATUSES.includes(currentStatus)) {
+        throw new AppError(
+          req.t?.(
+            "appointment.invalid_reschedule_source_status",
+            "Only booked or confirmed appointments can be rescheduled",
+          ) ?? "Only booked or confirmed appointments can be rescheduled",
+          400,
+          "appointment.invalid_reschedule_source_status",
+          {
+            status: currentStatus,
+          },
+        );
+      }
+
+      const serviceId = Number((row as any).serviceId);
+      const service = await Service.findByPk(serviceId, {
         transaction: t,
-        body: parsed.data,
+        lock: t.LOCK.UPDATE,
       });
 
+      if (!service) {
+        throw new AppError(
+          req.t?.("service.not_found", "Service not found") ??
+            "Service not found",
+          404,
+          "service.not_found",
+          { serviceId },
+        );
+      }
+
+      const newStartAt = toDate(
+        parsed.data.newStartAt,
+        "appointment.invalid_date",
+      );
+      const newStaffId =
+        parsed.data.staffId !== undefined
+          ? parsed.data.staffId ?? null
+          : ((row as any).staffId ?? null);
+      const newRoomId =
+        parsed.data.roomId !== undefined
+          ? parsed.data.roomId ?? null
+          : ((row as any).roomId ?? null);
+      const nextStatus = (parsed.data.status ??
+        currentStatus) as AppointmentStatus;
+
+      let newEndAt: Date;
+      if (parsed.data.newEndAt) {
+        newEndAt = toDate(parsed.data.newEndAt, "appointment.invalid_date");
+      } else {
+        const durationMinutes = Number((service as any).durationMinutes ?? 0);
+        if (!durationMinutes || durationMinutes <= 0) {
+          throw new AppError(
+            "Service duration invalid",
+            400,
+            "service.duration_invalid",
+          );
+        }
+        newEndAt = new Date(newStartAt.getTime() + durationMinutes * 60_000);
+      }
+
+      await ensureAppointmentConstraints({
+        startAt: newStartAt,
+        endAt: newEndAt,
+        serviceId,
+        roomId: newRoomId,
+        staffId: newStaffId,
+        excludeAppointmentId: Number((row as any).id),
+        t,
+      });
+
+      const newAppointment = await Appointment.create(
+        {
+          customerId: Number((row as any).customerId),
+          serviceId,
+          staffId: newStaffId,
+          roomId: newRoomId,
+          startAt: newStartAt,
+          endAt: newEndAt,
+          sourceType: (row as any).sourceType ?? "single_service",
+          sourceId: (row as any).sourceId ?? null,
+          customerPackageId: (row as any).customerPackageId ?? null,
+          status: nextStatus,
+          notes: (row as any).notes ?? null,
+          internalNotes: (row as any).internalNotes ?? null,
+          rescheduledFromAppointmentId: Number((row as any).id),
+        } as any,
+        { transaction: t },
+      );
+
+      const previousAppointmentPatch = buildAppointmentStatusPatch({
+        nextStatus: "rescheduled",
+        userId: getUserId(req),
+        body: parsed.data,
+        row,
+      });
+
+      await row.update(previousAppointmentPatch, { transaction: t });
+
       await t.commit();
-      return res.json({ data: row });
+      return res.json({
+        data: {
+          previousAppointment: row,
+          newAppointment,
+        },
+      });
     } catch (e) {
       await t.rollback();
       throw e;
