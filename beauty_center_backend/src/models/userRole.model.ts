@@ -1,6 +1,6 @@
 // src/models/UserRole.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 export class UserRole extends Model {}
 UserRole.init(

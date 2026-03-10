@@ -5,7 +5,7 @@ import {
   InferCreationAttributes,
   CreationOptional,
 } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 export type CustomerPackageStatus =
   | "active"

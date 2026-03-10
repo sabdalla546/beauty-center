@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { Op } from "sequelize";
-import { connectDB, sequelize } from "../db/db";
+import { connectDB, sequelize } from "../db";
 import { Permission, Role, User } from "../models";
 import { hashPassword } from "../utils/password";
 import { withTransaction } from "../utils/transaction";
