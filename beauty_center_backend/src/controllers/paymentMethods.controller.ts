@@ -3,11 +3,12 @@ import { Request, Response } from "express";
 import { PaymentMethod } from "../models";
 import { AppError } from "../errors/AppError";
 import { asyncHandler } from "../middlewares/asyncHandler";
+import { ok } from "../utils/apiResponse";
 
 export const listPaymentMethods = asyncHandler(
   async (_req: Request, res: Response) => {
     const rows = await PaymentMethod.findAll({ order: [["id", "ASC"]] });
-    res.json({ status: "success", data: rows });
+    ok(res, rows);
   },
 );
 
@@ -17,7 +18,7 @@ export const listActivePaymentMethods = asyncHandler(
       where: { isActive: true },
       order: [["id", "ASC"]],
     });
-    res.json({ status: "success", data: rows });
+    ok(res, rows);
   },
 );
 
@@ -39,7 +40,7 @@ export const createPaymentMethod = asyncHandler(
       isActive: isActive ?? true,
     });
 
-    res.status(201).json({ status: "success", data: row });
+    ok(res, row, 201);
   },
 );
 
@@ -55,7 +56,7 @@ export const updatePaymentMethod = asyncHandler(
     if (isActive !== undefined) row.isActive = Boolean(isActive);
 
     await row.save();
-    res.json({ status: "success", data: row });
+    ok(res, row);
   },
 );
 
@@ -69,6 +70,6 @@ export const deletePaymentMethod = asyncHandler(
     row.isActive = false;
     await row.save();
 
-    res.json({ status: "success", message: "Disabled" });
+    ok(res, { message: "Disabled" });
   },
 );

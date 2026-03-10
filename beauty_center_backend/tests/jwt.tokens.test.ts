@@ -4,7 +4,7 @@ import { hashRefreshToken } from "../src/utils/tokenHash";
 import { RefreshToken as RefreshTokenModel } from "../src/models/refreshToken.model";
 
 // jest will hoist mocks; we'll manually spy / mock methods
-jest.mock("../src/models/RefreshToken");
+jest.mock("../src/models/refreshToken.model");
 
 describe("refresh-token limit & pruning logic", () => {
   afterEach(() => {
