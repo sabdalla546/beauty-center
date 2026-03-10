@@ -3,6 +3,7 @@ import express from "express";
 import { userController } from "../controllers/user.controller";
 import { requirePermission } from "../middlewares/authorize"; // your RBAC middleware
 import { authenticate } from "../middlewares/authenticate"; // middleware that populates req.user
+import { asyncHandler } from "../middlewares/asyncHandler";
 
 const router = express.Router();
 
@@ -11,50 +12,50 @@ router.post(
   "/",
   authenticate,
   requirePermission("users.create"),
-  userController.createUser,
+  asyncHandler(userController.createUser),
 );
 router.get(
   "/",
   authenticate,
   requirePermission("users.read"),
-  userController.listUsers,
+  asyncHandler(userController.listUsers),
 );
 router.get(
   "/:id",
   authenticate,
   requirePermission("users.read"),
-  userController.getUser,
+  asyncHandler(userController.getUser),
 );
 router.put(
   "/:id",
   authenticate,
   requirePermission("users.update"),
-  userController.updateUser,
+  asyncHandler(userController.updateUser),
 );
 router.delete(
   "/:id",
   authenticate,
   requirePermission("users.delete"),
-  userController.deleteUser,
+  asyncHandler(userController.deleteUser),
 );
 router.put(
   "/:id/restore",
   authenticate,
   requirePermission("users.restore"),
-  userController.restoreUser,
+  asyncHandler(userController.restoreUser),
 );
 // Profile endpoints for authenticated user
 router.get(
   "/me/profile",
   authenticate,
   // requirePermission("users.profile.read"),
-  userController.getProfile,
+  asyncHandler(userController.getProfile),
 );
 router.put(
   "/me/profile",
   authenticate,
   requirePermission("users.profile.update"),
-  userController.updateProfile,
+  asyncHandler(userController.updateProfile),
 );
 
 export default router;

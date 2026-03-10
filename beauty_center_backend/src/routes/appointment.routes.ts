@@ -2,6 +2,7 @@
 import { Router } from "express";
 import { authenticate } from "../middlewares/authenticate";
 import { requirePermission } from "../middlewares/authorize";
+import { asyncHandler } from "../middlewares/asyncHandler";
 import {
   getAppointmentsCalendar,
   createAppointment,
@@ -26,80 +27,80 @@ router.use(authenticate);
 router.get(
   "/calendar",
   requirePermission("appointments.read"),
-  getAppointmentsCalendar,
+  asyncHandler(getAppointmentsCalendar),
 );
 
 router.get(
   "/export/pdf",
   requirePermission("appointments.read"),
-  exportAppointmentsPdf,
+  asyncHandler(exportAppointmentsPdf),
 );
 
 router.post(
   "/",
   requirePermission("appointments.create"),
-  createAppointment,
+  asyncHandler(createAppointment),
 );
 
 router.post(
   "/:id/checkout",
   requirePermission("pos.orders.create"),
-  checkoutAppointment,
+  asyncHandler(checkoutAppointment),
 );
 
 router.put(
   "/:id",
   requirePermission("appointments.update"),
-  updateAppointment,
+  asyncHandler(updateAppointment),
 );
 
 router.patch(
   "/:id/status",
   requirePermission("appointments.update"),
-  updateAppointmentStatus,
+  asyncHandler(updateAppointmentStatus),
 );
 
 // Explicit workflow endpoints
 router.post(
   "/:id/confirm",
   requirePermission("appointments.update"),
-  confirmAppointment,
+  asyncHandler(confirmAppointment),
 );
 
 router.post(
   "/:id/check-in",
   requirePermission("appointments.update"),
-  checkInAppointment,
+  asyncHandler(checkInAppointment),
 );
 
 router.post(
   "/:id/start",
   requirePermission("appointments.update"),
-  startAppointmentService,
+  asyncHandler(startAppointmentService),
 );
 
 router.post(
   "/:id/complete",
   requirePermission("appointments.update"),
-  completeAppointment,
+  asyncHandler(completeAppointment),
 );
 
 router.post(
   "/:id/cancel",
   requirePermission("appointments.update"),
-  cancelAppointment,
+  asyncHandler(cancelAppointment),
 );
 
 router.post(
   "/:id/no-show",
   requirePermission("appointments.update"),
-  markAppointmentNoShow,
+  asyncHandler(markAppointmentNoShow),
 );
 
 router.post(
   "/:id/reschedule",
   requirePermission("appointments.update"),
-  rescheduleAppointment,
+  asyncHandler(rescheduleAppointment),
 );
 
 export default router;

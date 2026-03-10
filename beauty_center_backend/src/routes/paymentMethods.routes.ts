@@ -9,32 +9,33 @@ import {
 } from "../controllers/paymentMethods.controller";
 import { authenticate } from "../middlewares/authenticate";
 import { requirePermission } from "../middlewares/authorize";
+import { asyncHandler } from "../middlewares/asyncHandler";
 
 const router = Router();
 
 router.use(authenticate);
 
-router.get("/", requirePermission("payment_methods.read"), listPaymentMethods);
+router.get("/", requirePermission("payment_methods.read"), asyncHandler(listPaymentMethods));
 router.get(
   "/active",
   requirePermission("payment_methods.read"),
-  listActivePaymentMethods,
+  asyncHandler(listActivePaymentMethods),
 );
 
 router.post(
   "/",
   requirePermission("payment_methods.create"),
-  createPaymentMethod,
+  asyncHandler(createPaymentMethod),
 );
 router.patch(
   "/:id",
   requirePermission("payment_methods.update"),
-  updatePaymentMethod,
+  asyncHandler(updatePaymentMethod),
 );
 router.delete(
   "/:id",
   requirePermission("payment_methods.delete"),
-  deletePaymentMethod,
+  asyncHandler(deletePaymentMethod),
 );
 
 export default router;
