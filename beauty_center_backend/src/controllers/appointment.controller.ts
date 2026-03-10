@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { Op, Transaction } from "sequelize";
 import { AppError } from "../errors/AppError";
 import { asyncHandler } from "../middlewares/asyncHandler";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 import {
   createAppointmentSchema,
@@ -31,6 +31,12 @@ import {
   toDate,
 } from "../services/appointmentConflicts.service";
 import { sendReportResponse } from "../utils/reportExport";
+import { type AppointmentStatus } from "../constants/domain";
+import {
+  buildAppointmentStatusPatch,
+  canTransitionAppointmentStatus,
+  isTerminalAppointmentStatus,
+} from "../services/appointmentWorkflow.service";
 const invalidAppointmentInput = (
   req: Request,
   res: Response,
@@ -44,161 +50,6 @@ const invalidAppointmentInput = (
       details,
     },
   });
-const APPOINTMENT_STATUS_FLOW: Record<string, string[]> = {
-  booked: ["confirmed", "checked_in", "cancelled", "no_show"],
-  confirmed: ["checked_in", "cancelled", "no_show"],
-  checked_in: ["in_service", "cancelled"],
-  in_service: ["completed", "cancelled"],
-  completed: [],
-  cancelled: [],
-  no_show: [],
-  rescheduled: [],
-};
-
-const canTransitionAppointmentStatus = (from: string, to: string): boolean => {
-  if (from === to) return true;
-  const allowed = APPOINTMENT_STATUS_FLOW[from] ?? [];
-  return allowed.includes(to);
-};
-
-const isTerminalAppointmentStatus = (status: string) =>
-  ["completed", "cancelled", "no_show", "rescheduled"].includes(status);
-
-const now = () => new Date();
-
-const clearExecutionAndClosureFieldsForStatus = (status: string) => {
-  // used when setting terminal/transition states in a consistent way
-  switch (status) {
-    case "booked":
-    case "confirmed":
-      return {
-        checkedInAt: null,
-        startedAt: null,
-        completedAt: null,
-        completedBy: null,
-        cancelledAt: null,
-        cancelledBy: null,
-        cancelReason: null,
-        noShowMarkedAt: null,
-        noShowMarkedBy: null,
-      };
-    case "checked_in":
-      return {
-        startedAt: null,
-        completedAt: null,
-        completedBy: null,
-        cancelledAt: null,
-        cancelledBy: null,
-        cancelReason: null,
-        noShowMarkedAt: null,
-        noShowMarkedBy: null,
-      };
-    case "in_service":
-      return {
-        completedAt: null,
-        completedBy: null,
-        cancelledAt: null,
-        cancelledBy: null,
-        cancelReason: null,
-        noShowMarkedAt: null,
-        noShowMarkedBy: null,
-      };
-    case "completed":
-      return {
-        cancelledAt: null,
-        cancelledBy: null,
-        cancelReason: null,
-        noShowMarkedAt: null,
-        noShowMarkedBy: null,
-      };
-    case "cancelled":
-      return {
-        noShowMarkedAt: null,
-        noShowMarkedBy: null,
-        completedAt: null,
-        completedBy: null,
-      };
-    case "no_show":
-      return {
-        cancelledAt: null,
-        cancelledBy: null,
-        cancelReason: null,
-        completedAt: null,
-        completedBy: null,
-        startedAt: null,
-      };
-    case "rescheduled":
-      return {
-        noShowMarkedAt: null,
-        noShowMarkedBy: null,
-      };
-    default:
-      return {};
-  }
-};
-
-const buildStatusSideEffects = ({
-  currentStatus,
-  nextStatus,
-  userId,
-  body,
-  row,
-}: {
-  currentStatus: string;
-  nextStatus: string;
-  userId: number | null;
-  body?: any;
-  row?: any;
-}) => {
-  const effects: Record<string, any> = {
-    status: nextStatus,
-    ...clearExecutionAndClosureFieldsForStatus(nextStatus),
-  };
-
-  if (nextStatus === "checked_in") {
-    effects.checkedInAt = row?.checkedInAt ?? now();
-  }
-
-  if (nextStatus === "in_service") {
-    effects.checkedInAt = row?.checkedInAt ?? now();
-    effects.startedAt = row?.startedAt ?? now();
-
-    if (body?.actualStaffId !== undefined) {
-      effects.actualStaffId = body.actualStaffId ?? null;
-    }
-    if (body?.actualRoomId !== undefined) {
-      effects.actualRoomId = body.actualRoomId ?? null;
-    }
-  }
-
-  if (nextStatus === "completed") {
-    effects.checkedInAt = row?.checkedInAt ?? now();
-    effects.startedAt = row?.startedAt ?? now();
-    effects.completedAt = row?.completedAt ?? now();
-    effects.completedBy = userId ?? null;
-
-    if (body?.actualStaffId !== undefined) {
-      effects.actualStaffId = body.actualStaffId ?? null;
-    }
-    if (body?.actualRoomId !== undefined) {
-      effects.actualRoomId = body.actualRoomId ?? null;
-    }
-  }
-
-  if (nextStatus === "cancelled") {
-    effects.cancelledAt = now();
-    effects.cancelledBy = userId ?? null;
-    effects.cancelReason = body?.cancelReason ?? null;
-  }
-
-  if (nextStatus === "no_show") {
-    effects.noShowMarkedAt = now();
-    effects.noShowMarkedBy = userId ?? null;
-  }
-
-  return effects;
-};
-
 const buildCalendarWhere = (query: {
   from?: string;
   to?: string;
@@ -390,11 +241,11 @@ const transitionAppointmentStatus = async ({
 }: {
   req: Request;
   row: any;
-  nextStatus: string;
+  nextStatus: AppointmentStatus;
   transaction: Transaction;
   body?: any;
 }) => {
-  const currentStatus = String(row.status || "booked");
+  const currentStatus = String(row.status || "booked") as AppointmentStatus;
 
   if (!canTransitionAppointmentStatus(currentStatus, nextStatus)) {
     throw new AppError(
@@ -428,8 +279,7 @@ const transitionAppointmentStatus = async ({
 
   const userId = getUserId(req);
 
-  const patch = buildStatusSideEffects({
-    currentStatus,
+  const patch = buildAppointmentStatusPatch({
     nextStatus,
     userId,
     body,

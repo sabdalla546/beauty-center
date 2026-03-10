@@ -1,6 +1,6 @@
 // src/models/RefreshToken.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 export class RefreshToken extends Model {
   declare id: number;
