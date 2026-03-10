@@ -48,5 +48,17 @@ PackageUsage.init(
     createdAt: { type: DataTypes.DATE, allowNull: false, field: "created_at" },
     updatedAt: { type: DataTypes.DATE, allowNull: false, field: "updated_at" },
   },
-  { sequelize, tableName: "package_usages", underscored: true },
+  {
+    sequelize,
+    tableName: "package_usages",
+    underscored: true,
+    indexes: [
+      { name: "package_usages_customer_package_idx", fields: ["customer_package_id"] },
+      { name: "package_usages_used_at_idx", fields: ["used_at"] },
+      {
+        name: "package_usages_customer_package_used_at_idx",
+        fields: ["customer_package_id", "used_at"],
+      },
+    ],
+  },
 );

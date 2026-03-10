@@ -650,8 +650,16 @@ export const createPosOrder = asyncHandler(
           totalPriceFils = unitPriceFils * qty;
         }
 
+        const normalizedStaffId = i.lineType === "service" ? (i.staffId ?? null) : null;
+        const normalizedRoomId = i.lineType === "service" ? (i.roomId ?? null) : null;
+        const normalizedAppointmentId =
+          i.lineType === "package" ? null : (i.appointmentId ?? null);
+
         itemsFils.push({
           ...i,
+          staffId: normalizedStaffId,
+          roomId: normalizedRoomId,
+          appointmentId: normalizedAppointmentId,
           quantity: qty,
           unitPriceFils,
           totalPriceFils,

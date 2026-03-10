@@ -39,5 +39,17 @@ Order.init(
     taxFils: { type: DataTypes.INTEGER, defaultValue: 0 },
     totalFils: { type: DataTypes.INTEGER, defaultValue: 0 },
   },
-  { sequelize, tableName: "orders", timestamps: true },
+  {
+    sequelize,
+    tableName: "orders",
+    timestamps: true,
+    indexes: [
+      { name: "orders_status_idx", fields: ["status"] },
+      { name: "orders_shift_session_idx", fields: ["shiftSessionId"] },
+      { name: "orders_created_by_idx", fields: ["createdBy"] },
+      { name: "orders_customer_idx", fields: ["customerId"] },
+      { name: "orders_external_ref_idx", fields: ["externalRef"] },
+      { name: "orders_created_at_idx", fields: ["createdAt"] },
+    ],
+  },
 );

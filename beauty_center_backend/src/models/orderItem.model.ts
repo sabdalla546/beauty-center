@@ -59,5 +59,19 @@ OrderItem.init(
     coveredQty: { type: DataTypes.INTEGER, allowNull: true },
     uncoveredQty: { type: DataTypes.INTEGER, allowNull: true },
   },
-  { sequelize, tableName: "order_items", timestamps: false },
+  {
+    sequelize,
+    tableName: "order_items",
+    timestamps: false,
+    indexes: [
+      { name: "order_items_order_idx", fields: ["orderId"] },
+      { name: "order_items_appointment_idx", fields: ["appointmentId"] },
+      { name: "order_items_line_type_idx", fields: ["lineType"] },
+      { name: "order_items_reference_idx", fields: ["referenceId"] },
+      {
+        name: "order_items_line_type_reference_idx",
+        fields: ["lineType", "referenceId"],
+      },
+    ],
+  },
 );
