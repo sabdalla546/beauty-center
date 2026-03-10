@@ -6,7 +6,7 @@ import fs from "fs/promises";
 
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../errors/AppError";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 
 import {
   createProductSchema,

@@ -1,6 +1,6 @@
 // src/services/appointmentConflicts.service.ts
 import { Op, Transaction } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 import { Appointment, Room, Service, Staff } from "../models";
 import { AppError } from "../errors/AppError";
 

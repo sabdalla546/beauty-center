@@ -5,7 +5,7 @@ import rateLimit from "express-rate-limit";
 import cors from "cors";
 import path from "path";
 
-import { connectDB, sequelize } from "./db/db";
+import { connectDB, sequelize } from "./db";
 import { startRefreshTokenMaintenance } from "./utils/jwt";
 import { logger } from "./utils/logger";
 

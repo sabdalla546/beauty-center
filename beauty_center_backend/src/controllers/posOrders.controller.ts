@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../errors/AppError";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
 import { Op, WhereOptions, fn, literal } from "sequelize";
 import { filsToKwd, kwdToFils } from "../utils/money";
 import { createPosOrderSchema, payPosOrderSchema } from "../validators/pos";
