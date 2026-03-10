@@ -1,6 +1,7 @@
 // src/models/Order.ts
 import { DataTypes, Model } from "sequelize";
-import { sequelize } from "../db/db";
+import { sequelize } from "../db";
+import { ORDER_STATUSES } from "../constants/domain";
 export class Order extends Model {
   declare id: number;
   declare externalRef?: string | null;
@@ -31,7 +32,7 @@ Order.init(
       allowNull: true,
     },
 
-    status: { type: DataTypes.STRING(32), defaultValue: "open" },
+    status: { type: DataTypes.ENUM(...ORDER_STATUSES), defaultValue: "open" },
 
     subtotalFils: { type: DataTypes.INTEGER, defaultValue: 0 },
     discountFils: { type: DataTypes.INTEGER, defaultValue: 0 },
